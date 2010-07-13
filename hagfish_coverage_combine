@@ -1,0 +1,112 @@
+#!/usr/bin/env python
+
+import os
+import sys
+import pickle
+
+import numpy as np
+
+import logging
+import optparse
+
+## Arguments: General options 
+parser = optparse.OptionParser()
+parser.add_option('-v', dest='verbose', action="count", 
+                  help='Show debug information')
+
+options, args = parser.parse_args()
+
+l = logging.getLogger('hagfish')
+handler = logging.StreamHandler()
+logmark = chr(27) + '[0;37;44mHAGFISH' + \
+          chr(27) + '[0m ' 
+
+formatter = logging.Formatter(
+    logmark + '%(levelname)-6s %(message)s')
+
+handler.setFormatter(formatter)
+l.addHandler(handler)
+
+if options.verbose >= 2:
+    l.setLevel(logging.DEBUG)
+elif options.verbose == 1:
+    l.setLevel(logging.INFO)
+else:
+    l.setLevel(logging.WARNING)
+
+if __name__ == '__main__':
+
+
+    #read an arbitrary seqId file
+    for f in os.listdir('seqInfo'):
+        if '.seqinfo' in f:
+            seqInfoFile = os.path.join('seqInfo', f)
+            break
+        else:
+            l.critical("cannot find a seqInfo file")
+            sys.exit(-1)
+
+    l.info("reading %s for seqinfo" % seqInfoFile)
+    with open(seqInfoFile) as F:
+        seqInfo = pickle.load(F)
+        
+    l.info("discovered %d sequences" % len(seqInfo))
+
+    if not os.path.exists('combined'):
+        os.mkdir('combined')
+
+    for seqId in seqInfo.keys():
+
+        r_ok = None
+        r_low = None
+        r_high = None
+        r_low_binned = None
+        r_high_binned = None
+        bins_low = []
+        bins_high = []
+
+        for inputDir in os.listdir('coverage'):
+            inputFile = os.path.join('coverage', inputDir, seqId + '.coverage.npz')
+            if not os.path.exists(inputFile):
+                l.debug("skiping %s (%d nt)" % (seqId, seqInfo[seqId]['length']))
+                break
+            bamBase = inputDir
+
+            l.info("processing %s (%s)" % (bamBase,inputFile))
+
+            #read the coverage plots
+            data = np.load(inputFile)
+            if r_ok == None:
+                r_ok = data['r_ok']
+                r_high = data['r_high']
+                r_low = data['r_low']
+                r_low_binned = data['r_low_binned']
+                r_high_binned = data['r_high_binned']
+                bins_low = data['bins_low']
+                bins_high = data['bins_high']
+            else:
+                if (not list(bins_low) == list(data['bins_low'])) or \
+                    (not list(bins_high) == list(data['bins_high'])):
+                    l.critical("different bins!")
+                    sys.exit()
+
+                r_ok += data['r_ok']
+                r_high += data['r_high']
+                r_low += data['r_low']
+                r_low_binned += data['r_low_binned']
+                r_high_binned += data['r_high_binned']
+
+            l.debug("Max low ok high %d %d %d" % (
+                    np.max(r_low), np.max(r_ok), np.max(r_high)))
+
+
+        if r_ok != None and np.max(r_ok) > 0:
+            np.savez(os.path.join('combined', seqId + '.combined.coverage'),
+                     r_ok = r_ok,
+                     r_high = r_high,
+                     r_low = r_low,
+                     r_low_binned = r_low_binned ,
+                     r_high_binned =  r_high_binned,
+                     bins_low = bins_low,
+                     bins_high = bins_high)
+ 
