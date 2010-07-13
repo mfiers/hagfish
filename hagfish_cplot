@@ -5,6 +5,8 @@ import sys
 import math
 
 import numpy as np
+import matplotlib as mpl
+mpl.use('agg')
 import matplotlib.pyplot as plt
 import matplotlib.mlab as mlab
 import matplotlib as mpl
@@ -41,46 +43,47 @@ class plotter(hagfishPlotBand):
         ## to server a background
         self.l.debug("Plot background")
 
-        ## bg high
-        self.ax.fill_between(
-            self.locx,
-            self.okh + yc,
-            self.okh + self.high + yc,
-            alpha = 0.6,
-            zorder = 0,
-            color=COLOR2)
+        if not self.options.quick:
+            ## bg high
+            self.ax.fill_between(
+                self.locx,
+                self.okh + yc,
+                self.okh + self.high + yc,
+                alpha = 0.6,
+                zorder = 0,
+                color=COLOR2)
 
-        ### bg low
-        self.ax.fill_between(
-            self.locx,
-            -self.okh + yc,
-            (-self.okh - self.low) + yc,
-            alpha=0.6,
-            color=COLOR3,
-            zorder=0)
+            ### bg low
+            self.ax.fill_between(
+                self.locx,
+                -self.okh + yc,
+                (-self.okh - self.low) + yc,
+                alpha=0.6,
+                color=COLOR3,
+                zorder=0)
 
-        ### bg ok
-        self.ax.fill_between(
-            self.locx,
-            -self.okh + yc,
-            self.okh + yc,
-            alpha=0.6,
-            color=COLOR1,
-            zorder=0)
-        
-        ## outlines
-        self.ax.plot( 
-            self.locx, 
-            self.okh + self.high + yc,
-            color = 'black', linewidth=0.5,
-            zorder=0)
+            ### bg ok
+            self.ax.fill_between(
+                self.locx,
+                -self.okh + yc,
+                self.okh + yc,
+                alpha=0.6,
+                color=COLOR1,
+                zorder=0)
 
-        self.ax.plot(
-            self.locx,
-            -(self.okh + self.low) + yc,
-            color = 'black',
-            linewidth=0.5,
-            zorder=0)
+            ## outlines
+            self.ax.plot( 
+                self.locx, 
+                self.okh + self.high + yc,
+                color = 'black', linewidth=0.5,
+                zorder=0)
+
+            self.ax.plot(
+                self.locx,
+                -(self.okh + self.low) + yc,
+                color = 'black',
+                linewidth=0.5,
+                zorder=0)
 
         ## Reprint High/ok/low - now with a cutof to stay
         ## in the band
@@ -116,60 +119,38 @@ class plotter(hagfishPlotBand):
         #filter them, so that we only have outlines where the
         #plot remains inside the band                
 
-        self.ax.plot(
-            self.locx,
-            self.okh + self.high + yc,
-            color = 'black', linewidth = 0.5,
-            zorder =5,
-            clip_path=self.patch
-            )
+        if not self.options.quick:
+            self.ax.plot(
+                self.locx,
+                self.okh + self.high + yc,
+                color = 'black', linewidth = 0.5,
+                zorder =5,
+                clip_path=self.patch
+                )
 
-        self.ax.plot(
-            self.locx,
-            self.okh + yc,
-            color = 'black', linewidth = 0.5,
-            zorder =5,
-            clip_path=self.patch
-            )
+            self.ax.plot(
+                self.locx,
+                self.okh + yc,
+                color = 'black', linewidth = 0.5,
+                zorder =5,
+                clip_path=self.patch
+                )
 
-        self.ax.plot(
-             self.locx,
-             -(self.okh + self.low) + yc,
-             color = 'black',
-             linewidth=0.5,
-             clip_path=self.patch,
-             zorder=5)
+            self.ax.plot(
+                 self.locx,
+                 -(self.okh + self.low) + yc,
+                 color = 'black',
+                 linewidth=0.5,
+                 clip_path=self.patch,
+                 zorder=5)
 
-        self.ax.plot(
-             self.locx,
-             -self.okh + yc,
-             color = 'black',
-             linewidth=0.5,
-             clip_path=self.patch,
-             zorder=5)
-
-
-        # self.ax.fill_between(
-        #     self.locx,
-        #     -self.okh + yc,
-        #     self.okh + yc,
-        #     alpha = 1,
-        #     color=COLOR1,
-        #     zorder=2)
-        
-        # self.ax.plot(
-        #     self.locx,
-        #     self.okh + yc,
-        #     color = 'black',
-        #     linewidth=0.5,
-        #     zorder=2)
-
-        # self.ax.plot(
-        #     self.locx,
-        #     -self.okh + yc,
-        #     color = 'black',
-        #     linewidth=0.5,
-        #     zorder=2)
+            self.ax.plot(
+                 self.locx,
+                 -self.okh + yc,
+                 color = 'black',
+                 linewidth=0.5,
+                 clip_path=self.patch,
+                 zorder=5)
 
     def setYticks2(self):
         self.plot.yTicks2.append(self.yCorrection - self.data.medianH)
@@ -187,30 +168,7 @@ class plotter(hagfishPlotBand):
             alpha=0.3,
             color='black')
         
-plot.plotBands(plotter, layers=3)
+plot.plotBands(plotter)
 plot.save()
-
-#         #yAx.set_ticks(range(minY, maxY, 200))
-#         #ax.set_xlim(nstart,nstop+1)
-
-# ax.set_ylim(tminY,tmaxY)
-# #fig.autofmt_ydate()
-# yAx = ax.get_yaxis()
-# yAx.set_ticks(yTicks)
-# yAx.set_ticklabels(yTickLabels)
-
-# y2 = ax.twinx()
-# y2.get_yaxis().set_ticks(yTicks2)
-# y2.get_yaxis().set_ticklabels(yTickLabels2)
-# y2.set_ylim(tminY,tmaxY)
-
-
-#     outFileName = seqId
-
-# if options.start or options.end:
-#     outFileName += "_%d_%d" % (pStart, pEnd)
-
-# for f in options.format:
-#     plt.savefig('%s.%s' % (outFileName, f), dpi=100)
 
  
