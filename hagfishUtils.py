@@ -14,11 +14,20 @@ import optparse
 ################################################################################
 ## GLOBALS
 ##
-COLOR1 = '#28A62E'
-COLOR2 = '#DF1818'
-COLOR3 = '#3D358B'
-COLOR4 = '#F0D518'
-COLOR5 = '#01BEAF'
+COLOR1 = '#28962D' #green
+COLOR2 = '#CA2828' #red 
+COLOR3 = '#35488B' #purple
+COLOR4 = '#DFC92C' #yellow
+COLOR5 = '#2AB5AA' #cyan
+
+
+COLMAP1 = mpl.colors.LinearSegmentedColormap.from_list(
+    'COLMAP1', 
+    [COLOR2, COLOR4], N=100)
+
+COLMAP2 = mpl.colors.LinearSegmentedColormap.from_list(
+    'COLMAP2', 
+    [COLOR3, COLOR5], N=100)
 
 ################################################################################
 ## set up logging
@@ -52,9 +61,11 @@ def getHagfishOptparser():
     return parser
 
 def addPlotParameters(parser):
-    parser.set_defaults(ntPerBand=1e6)
+    parser.set_defaults(ntPerBand=-1)
+
     parser.add_option('-n', dest='ntPerBand',
                       help='no nucleotides per band')
+    
     parser.add_option('-i', dest='inputFile',
                       help='input file with the coverage data (npz, if not specified, '+
                       'the input file name will be inferred from the sequence Id')
@@ -86,6 +97,9 @@ def addPlotParameters(parser):
     parser.add_option('-f', dest='format', action='append',
                       help='Output format (may be defined more than once)')
 
+    parser.add_option('-Q', dest='quick', action='store_true',
+                      help='Create a "light" version of this graph (if implemented)')
+
 
 class hagfishData:
     
@@ -105,13 +119,16 @@ class hagfishData:
                 '%s.combined.coverage.npz' % self.seqId)
 
         self.l.info('loading %s' % self.inputFile)
-        self.vectors = ['ok', 'high', 'low']
+        self.vectors = ['ok', 'high', 'low', 'low_binned', 'high_binned']
         self.data = np.load(self.inputFile)
         self.ok = self.data['r_ok']
         self.high = self.data['r_high']
         self.low = self.data['r_low']
-        #self.low_binned = self.data['r_low_binned']
-        #self.high_binned = self.data['r_high_binned']
+        self.low_binned = self.data['r_low_binned']
+        self.high_binned = self.data['r_high_binned']
+        self.bins_high = self.data['bins_high']
+        self.bins_low = self.data['bins_low']
+        
         self.all = self.low + self.ok + self.high
 
         self.seqLen = len(self.data['r_ok'])
@@ -147,6 +164,17 @@ class hagfishPlot:
                 
         self.plotLen = self.stop - self.start
         self.ntPerBand = int(float(options.ntPerBand))
+        if self.ntPerBand == -1:
+            self.l.debug("nt per band is not specified")                    
+            self.ntPerBand = int(1e6)            
+            self.noBands = int(math.ceil(self.plotLen / float(self.ntPerBand)))
+            while self.noBands > 5:
+                self.ntPerBand += 1e6
+                self.noBands = int(math.ceil(self.plotLen / float(self.ntPerBand)))
+        else:
+            self.noBands = int(math.ceil(self.plotLen / float(self.ntPerBand)))
+
+            
         if self.ntPerBand > self.plotLen:
             self.ntPerBand = self.plotLen
 
@@ -154,7 +182,7 @@ class hagfishPlot:
         self.l.info("Plotting from %d to %d (%d nt)" % (
             self.start, self.stop, self.plotLen))
 
-        self.noBands = int(math.ceil(self.plotLen / float(self.ntPerBand)))
+
         self.l.info("Plotting %d bands" % self.noBands)
 
         self.yTicks = []
@@ -199,8 +227,7 @@ class hagfishPlot:
             self.ax.set_title('Coverage plot for "%s" (%.0e to %.0e)' % (
                 self.data.seqId, self.start, self.stop))
 
-    def plotBands(self, bandPlotter, layers=1):
-        self.bands = []
+    def plotBands(self, bandPlotter):
         yCorrect = 0
 
         for band in range(self.noBands):
@@ -212,13 +239,13 @@ class hagfishPlot:
             self.yTickLabels.append("%.0e" % b.start)
 
             b.setYticks2()
-            self.bands.append(b)
             if band == 0:
                 self.tmaxY = yCorrect + self.maxY
             if band == self.noBands -1:
                 self.tminY = yCorrect - self.maxY
-
             b.plotBand()
+            del b
+                
             
         y = self.ax.get_yaxis()
         y.set_ticks(self.yTicks)
@@ -250,6 +277,7 @@ class hagfishPlotBand:
 
         self.l = getLogger('band.%03d' % band, options.verbose)
         self.plot = plot
+        self.options = options
         self.ax = plot.ax
         self.data = self.plot.data
         self.band = band
@@ -265,7 +293,7 @@ class hagfishPlotBand:
         #special form of x
         self.locx = self.x - self.start
         
-    def plot(self, layer):
+    def plot(self):
         """
         Should be overridden
         """
