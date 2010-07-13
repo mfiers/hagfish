@@ -5,6 +5,8 @@ import sys
 import pickle
 
 import numpy as np
+import matplotlib as mpl
+gmpl.use('agg')
 import matplotlib.pyplot as plt
 import matplotlib.mlab as mlab
 
