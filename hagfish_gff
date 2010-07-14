@@ -1,0 +1,128 @@
+#!/usr/bin/env python
+
+import os
+import sys
+import pickle
+
+import numpy as np
+
+import logging
+import optparse
+
+## Arguments: General options 
+parser = optparse.OptionParser()
+parser.set_defaults(binSize=500, source='hagfish')
+parser.add_option('-v', dest='verbose', action="count", 
+                  help='Show debug information')
+parser.add_option('-s', dest='source', 
+                  help='Source field for the GFF output')
+parser.add_option('-b', dest='binSize',  type='int',
+                  help='binSize')
+
+options, args = parser.parse_args()
+
+l = logging.getLogger('hagfish')
+handler = logging.StreamHandler()
+logmark = chr(27) + '[0;37;44mHAGFISH' + \
+          chr(27) + '[0m ' 
+
+formatter = logging.Formatter(
+    logmark + '%(levelname)-6s %(message)s')
+
+handler.setFormatter(formatter)
+l.addHandler(handler)
+
+if options.verbose >= 2:
+    l.setLevel(logging.DEBUG)
+elif options.verbose == 1:
+    l.setLevel(logging.INFO)
+else:
+    l.setLevel(logging.WARNING)
+
+
+def generate_histogram(F,
+                       seqId,
+                       group,
+                       data, 
+                       bin,
+                       source):
+    
+    if bin == 1:
+        for i in range(len(data)):
+            v = data[i]
+            F.write("\t".join([
+                        seqId,
+                        source,
+                        'bin_%s_%s' % (group, bin),
+                        str(i+1),
+                        str(i+2),
+                        '%d' % v,
+                        '+',
+                        '.',
+                        'bin %s:%s' % (seqId, source)
+                        ]) + "\n")
+    else:
+        for r in range(0, len(data)+bin-1,bin):
+            F.write("\t".join([
+                        seqId,
+                        source,
+                        'bin_%s_%s' % (group, bin),
+                        str(r+1),
+                        str(r+bin),
+                        '%.1f' % np.average(data[r:r+bin-1]),
+                        '+',
+                        '.',
+                        'bin %s_%s' % (source, seqId)
+                        ]) + "\n")
+            
+if __name__ == '__main__':
+    
+    #read an arbitrary seqId file
+    for f in os.listdir('seqInfo'):
+        if '.seqinfo' in f:
+            seqInfoFile = os.path.join('seqInfo', f)
+            break
+        else:
+            l.critical("cannot find a seqInfo file")
+            sys.exit(-1)
+
+    l.info("reading %s to get seqinfo" % seqInfoFile)
+    with open(seqInfoFile) as F:
+        seqInfo = pickle.load(F)
+        
+    l.info("discovered %d sequences" % len(seqInfo))
+
+    binSize = options.binSize
+    if len(args) > 0:
+        seqIds = args
+    else:
+        seqIds = seqInfo.keys()
+
+    if not os.path.exists('gff'):
+        os.mkdir('gff')
+
+    FG = open(os.path.join('gff', 'coverage.ok.%d.gff' % binSize), 'w')
+    FS = open(os.path.join('gff', 'coverage.short.%d.gff' % binSize), 'w')
+    FL = open(os.path.join('gff', 'coverage.long.%d.gff' % binSize), 'w')
+
+    for seqId in seqIds:
+        coverageFile = os.path.join('combined', '%s.combined.coverage.npz' % seqId)
+        if not os.path.exists(coverageFile):
+            continue
+        l.info('processing %s' % coverageFile)
+        data = np.load(coverageFile)
+        r_ok = data['r_ok']
+        r_low = data['r_low']
+        r_high = data['r_high']
+
+        seqLen = len(r_ok)
+        l.info("sequence length of %s is %d" % (seqId, seqLen))
+        
+        generate_histogram(FG, seqId, 'ok', r_ok, binSize, options.source)
+        generate_histogram(FS, seqId, 'short', r_low, binSize, options.source)
+        generate_histogram(FL, seqId, 'long', r_high, binSize, options.source)
+
+    FG.close()
+    FS.close()
+    FL.close()
+
