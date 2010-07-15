@@ -1,0 +1,80 @@
+#!/usr/bin/env python
+
+import os
+import sys
+import math
+
+import numpy as np
+import matplotlib as mpl
+mpl.use('agg')
+import matplotlib.pyplot as plt
+import matplotlib.mlab as mlab
+import matplotlib as mpl
+#import matplotlib.transforms
+#import matplotlib.rc as rc
+import pylab as pl
+
+import subprocess
+
+from hagfishUtils import *
+
+## Arguments: General options 
+parser = getHagfishOptparser()
+addPlotParameters(parser)
+parser.remove_option('-Y')
+parser.remove_option('--ymax')
+parser.remove_option('-Q')
+
+options, args = parser.parse_args()
+
+options.ymax = 2
+options.bandHeight=20
+
+l = getLogger('main', options.verbose)
+
+l.info("starting %s" % sys.argv[0])
+    
+#load the coverage plots
+data = hagfishData(options, args)
+
+#prepare the plot
+plot = hagfishPlot(options, data)
+
+class plotter(hagfishPlotBand):
+    
+    def plotBand(self):
+        self.l.debug("Start plotting")
+        yc = self.yCorrection
+
+        #score = np.exp(-0.01 * (self.low + self.high)) - np.exp(-0.01 * self.ok)
+        score = 1 - 2 * np.exp(-1 * (self.ok / self.data.median)) \
+                + np.exp(-1 * ((self.ok + self.low + self.high)/self.data.median))
+
+        self.l.debug("score min %s max %s" % (np.min(score), np.max(score)))
+
+        spacer = (self.bandTop - self.bandBottom) / 20.0
+        self.plot.lastBar = self.ax.imshow(
+            [score],
+            cmap=COLMAP1,
+            aspect='auto',
+            interpolation='bilinear',
+            vmin=-1, vmax=1,
+            origin='lower',
+            extent=[0 , len(self.locx),
+                    self.bandBottom + spacer, self.bandTop]
+            )
+        
+    def setYticks2(self):
+        pass
+
+plot.plotBands(plotter)
+#l.info("attempt colorbar")
+#plt.colorbar(plot.lastBar, ax=plot.ax, orientation="horizontal", format="%s",
+#             ticks=[1, 0, -1],
+#             aspect=80,
+#             pad=0.3,
+#             )
+
+plot.save(tag='block')
+
+ 
