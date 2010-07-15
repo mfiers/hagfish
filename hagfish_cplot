@@ -20,6 +20,9 @@ from hagfishUtils import *
 
 ## Arguments: General options 
 parser = getHagfishOptparser()
+parser.add_option('-S', dest='score', action='store_true',
+                  help='plot the hagfish score' )
+
 addPlotParameters(parser)
 options, args = parser.parse_args()
 
@@ -49,7 +52,7 @@ class plotter(hagfishPlotBand):
                 self.locx,
                 self.okh + yc,
                 self.okh + self.high + yc,
-                alpha = 0.6,
+                alpha = 1,
                 zorder = 0,
                 color=COLOR2)
 
@@ -58,7 +61,7 @@ class plotter(hagfishPlotBand):
                 self.locx,
                 -self.okh + yc,
                 (-self.okh - self.low) + yc,
-                alpha=0.6,
+                alpha=1,
                 color=COLOR3,
                 zorder=0)
 
@@ -67,7 +70,7 @@ class plotter(hagfishPlotBand):
                 self.locx,
                 -self.okh + yc,
                 self.okh + yc,
-                alpha=0.6,
+                alpha=1,
                 color=COLOR1,
                 zorder=0)
 
@@ -152,6 +155,19 @@ class plotter(hagfishPlotBand):
                  clip_path=self.patch,
                  zorder=5)
 
+        if options.score:
+            score = self.data.medianH * (
+                1 - 2 * np.exp(-1 * (self.ok / self.data.median))
+                + np.exp(-1 * ( ( self.ok + self.low + self.high) / self.data.median))
+                )
+
+            s2 =  self.data.medianH * (2 - 2 * np.exp(-1 * (self.ok / (self.data.median))))
+
+            self.ax.plot(self.locx, score + yc, color='orange', linewidth=2)
+            self.ax.plot(self.locx, s2 + yc, color='blue', linewidth=2)
+
+
+        
     def setYticks2(self):
         self.plot.yTicks2.append(self.yCorrection - self.data.medianH)
         self.plot.yTicks2.append(self.yCorrection)
@@ -169,6 +185,6 @@ class plotter(hagfishPlotBand):
             color='black')
         
 plot.plotBands(plotter)
-plot.save()
+plot.save(tag='cbin')
 
  
