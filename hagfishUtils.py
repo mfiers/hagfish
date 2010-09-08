@@ -21,15 +21,17 @@ import optparse
 ################################################################################
 ## GLOBALS
 ##
-COLOR1 = '#28962D' #green
-COLOR2 = '#CA2828' #red 
-COLOR3 = '#35488B' #purple
-COLOR4 = '#DFC92C' #yellow
-COLOR5 = '#2AB5AA' #cyan
+COLOR1 = '#2C722F' #green
+COLOR2 = '#8C201E' #red 
+COLOR3 = '#224E73' #purple
+COLOR4 = '#DEA000' #yellow
+COLOR5 = '#078C7A' #cyan
+COLOR6 = '#EE1904' #lighter red
+COLOR7 = '#32AE1C' # lighter green
 
 COLMAP1 = mpl.colors.LinearSegmentedColormap.from_list(
     'COLMAP1', 
-    [COLOR2, COLOR3, COLOR1], N=200)
+    [COLOR6, COLOR3, COLOR7], N=200)
 
 
 ################################################################################
@@ -75,8 +77,8 @@ def addPlotParameters(parser):
 
     parser.set_defaults(imageWidth=1000)
     parser.set_defaults(bandHeight=200)
-    parser.add_option('-W', dest='imageWidth', help='imageWidth (in px)')
-    parser.add_option('-H', dest='bandHeight', help='bandHeight (in px)')
+    parser.add_option('-W', dest='imageWidth', type='int', help='imageWidth (in px)')
+    parser.add_option('-H', dest='bandHeight', type='int', help='bandHeight (in px)')
 
     parser.set_defaults(yfrac=0.98)
     parser.add_option('-Y', dest='yfrac', type='float', help='percentage of the plotted'
@@ -98,21 +100,31 @@ def addPlotParameters(parser):
     parser.add_option('-f', dest='format', action='append',
                       help='Output format (may be defined more than once)')
 
+    parser.set_defaults(format=['png'], dpi=100)
+    parser.add_option('--dpi', dest='dpi', type='int',
+                      help='dpi of the image, pixel calculations are based on dpi 100, setting dpi to 200 will double the x/y pixel size of your image)')
+
     parser.add_option('-Q', dest='quick', action='store_true',
                       help='Create a "light" version of this graph (if implemented)')
 
 
 class hagfishData:
     
-    def __init__(self, options, args):
+    def __init__(self, options, args, seqId = None, inputFile=None):
 
-        self.seqId = args[0]
+        if seqId:
+            self.seqId = seqId
+        else:
+            self.seqId = args[0]
+
         self.options = options
 
         self.l = getLogger('data', options.verbose)
         self.l.info("Loading sequence: %s" % self.seqId)
 
-        if options.inputFile:
+        if inputFile:
+            self.inputFile = inputFile
+        elif options.inputFile:
             self.inputFile = options.inputFile
         else:
             self.inputFile = os.path.join(
@@ -120,13 +132,21 @@ class hagfishData:
                 '%s.combined.coverage.npz' % self.seqId)
 
         self.l.info('loading %s' % self.inputFile)
-        self.vectors = ['ok', 'high', 'low', 'low_binned', 'high_binned']
+        self.vectors = ['ok', 'high', 'low', 'low_binned', 'high_binned',
+                        'ok_ends', 'high_ends', 'low_ends']
         self.data = np.load(self.inputFile)
+
         self.ok = self.data['r_ok']
         self.high = self.data['r_high']
         self.low = self.data['r_low']
+
+        self.ok_ends = self.data['r_ok_ends']
+        self.high_ends = self.data['r_high_ends']
+        self.low_ends = self.data['r_low_ends']
+
         self.low_binned = self.data['r_low_binned']
         self.high_binned = self.data['r_high_binned']
+
         self.bins_high = self.data['bins_high']
         self.bins_low = self.data['bins_low']
         
@@ -137,7 +157,9 @@ class hagfishData:
 
         #some stats
         self.okh = self.ok / 2
+        self.okh_ends = self.ok_ends / 2
         self.vectors.append('okh')
+        self.vectors.append('okh_ends')
         self.medianH = np.median(self.okh)
         self.median = np.median(self.ok)
         self.average = np.average(self.ok)
@@ -153,10 +175,12 @@ class hagfishData:
 
 class hagfishPlot:
 
-    def __init__(self, options, data, title=None):
+    def __init__(self, options, data, title=None, data2=None, ymax=None):
         self.l = getLogger('plot', options.verbose)
         self.options = options
+
         self.data = data
+        self.data2 = data2
 
         self.start = 0
         if options.start:
@@ -198,7 +222,10 @@ class hagfishPlot:
 
         self.tminY, self.tmaxY = 0, 0
 
-        if options.ymax:
+        if ymax:
+            self.maxY = ymax
+            self.minY = -self.maxY
+        elif options.ymax:
             self.maxY = int(options.ymax)
             self.minY = -self.maxY
         else:
@@ -286,8 +313,11 @@ class hagfishPlot:
 
         for f in self.options.format:
             self.l.info("writing to %s.%s" % (outFileName, f))
-            plt.savefig('%s.%s' % (outFileName, f), dpi=100)
+            plt.savefig('%s.%s' % (outFileName, f), dpi=self.options.dpi)
 
+
+class Dummy:
+    pass
 
 class hagfishPlotBand:
     
@@ -298,18 +328,27 @@ class hagfishPlotBand:
         self.options = options
         self.ax = plot.ax
         self.data = self.plot.data
+        self.data2 = self.plot.data2
+
         self.band = band
         self.start = self.plot.start + (band * self.plot.ntPerBand)
         self.stop = self.start + (self.plot.ntPerBand - 1)
         self.l.debug( 'printing from %d to %d' % ( self.start, self.stop))
 
         self.l.debug("preprocessing band data")
+
+        self.d1 = Dummy()
+        if self.data2: self.d2 = Dummy()
+
         for v in self.data.vectors:
-            self.__dict__[v] = self.data.__dict__[v][self.start:self.stop]
-            
+            setattr(self, v, self.data.__dict__[v][self.start:self.stop])
+            setattr(self.d1, v, getattr(self, v))
+            if self.data2:
+                setattr(self.d2, v, self.data2.__dict__[v][self.start:self.stop])
+                    
         #special form of x
         self.locx = self.x - self.start
-        
+        self.zero = np.zeros_like(self.locx)
     def plot(self):
         """
         Should be overridden

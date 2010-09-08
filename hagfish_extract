@@ -361,6 +361,10 @@ def normalizeSortReadPairs(bamBase, seqInfo, readPairs, stats):
         r_low = np.zeros(seqLen, dtype=np.int)
         r_high = np.zeros(seqLen, dtype=np.int)
 
+        r_ok_ends = np.zeros(seqLen, dtype=np.int)
+        r_low_ends = np.zeros(seqLen, dtype=np.int)
+        r_high_ends = np.zeros(seqLen, dtype=np.int)
+
         #approach_2
         bins_low = [1000, 2000, 4000, 8000, 16000, 32000]
         bins_high = [1000, 2000,4000,8000,16000,32000]
@@ -371,29 +375,35 @@ def normalizeSortReadPairs(bamBase, seqInfo, readPairs, stats):
         peakLow = stats['left']
         peakHigh = stats['right']
                            
-        def ff(a,b):
-            dist = b-a
+        def ff(a1, a2, b1, b2):
+            a = a1
+            b = b2
+            dist = b2 - a1
             if dist < peakLow:
                 tooLow = peakLow - dist
                 for binNo in range(len(bins_low)):
                     if tooLow < bins_low[binNo]: break
-                #l.info("LW: %s <-%s- (%s-%s) bin %d (%d)" % (dist,  tooLow, peakLow, peakHigh, bins_low[binNo], binNo))
-                r_low[a:b] += 1
-                r_low_binned[a:b,binNo] += 1
+                r_low[a1:b2] += 1
+                r_low_ends[a1:a2] += 1
+                r_low_ends[b1:b2] += 1
+                r_low_binned[a1:b2,binNo] += 1
             elif dist > peakHigh:
                 tooHigh = dist - peakHigh
                 for binNo in range(len(bins_high)):
                     if tooHigh < bins_high[binNo]: break
-                #l.info("HG: (%s-%s) ==%s==> %s bin %d (%d)" % (peakLow, peakHigh, tooHigh, dist, bins_high[binNo], binNo))
-                r_high[a:b] += 1
-                r_high_binned[a:b,binNo] += 1
+                r_high[a1:b2] += 1
+                r_high_ends[a1:a2] += 1
+                r_high_ends[b1:b2] += 1
+                r_high_binned[a1:b2,binNo] += 1
             else:
                 r_ok[a:b] += 1
+                r_ok_ends[a1:a2] += 1
+                r_ok_ends[b1:b2] += 1
 
         FF=np.vectorize(ff)
         l.debug("Start calculating coverage plots for %d readpairs" % len(rp['start1']))
         if len(rp['start1']) > 0:
-            FF(rp['start1'], rp['stop2'])
+            FF(rp['start1'], rp['stop1'], rp['start2'], rp['stop2'])
             l.debug("Done calculating coverage plot")
         else:
             l.debug("Not much to do for zero readpairs")
@@ -406,6 +416,9 @@ def normalizeSortReadPairs(bamBase, seqInfo, readPairs, stats):
                  r_low = r_low, 
                  r_ok = r_ok, 
                  r_high = r_high,
+                 r_low_ends = r_low_ends, 
+                 r_ok_ends = r_ok_ends, 
+                 r_high_ends = r_high_ends,
                  r_high_binned = r_high_binned,
                  r_low_binned = r_low_binned,
                  bins_low = bins_low,

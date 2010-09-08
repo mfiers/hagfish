@@ -1,0 +1,178 @@
+#!/usr/bin/env python
+
+import os
+import sys
+import math
+
+import numpy as np
+import matplotlib as mpl
+mpl.use('agg')
+import matplotlib.pyplot as plt
+import matplotlib.mlab as mlab
+import matplotlib as mpl
+
+
+import pylab as pl
+
+import subprocess
+
+from hagfishUtils import *
+
+## Arguments: General options 
+parser = getHagfishOptparser()
+parser.add_option('-S', dest='score', action='store_true',
+                  help='plot the hagfish score' )
+
+addPlotParameters(parser)
+options, args = parser.parse_args()
+
+l = getLogger('main', options.verbose)
+
+l.info("starting %s" % sys.argv[0])
+    
+seqId = args[0]
+
+indir1 = args[1]
+indir2 = args[2]
+
+infile1 = os.path.join(
+    indir1, 'combined', 
+    '%s.combined.coverage.npz' % seqId)
+l.info("input file 1: %s" % infile1)
+infile2 = os.path.join(
+    indir2, 'combined', 
+    '%s.combined.coverage.npz' % seqId)
+l.info("input file 2: %s" % infile2)
+
+#load the coverage plots
+data = hagfishData(options, args, inputFile = infile1)
+data2 = hagfishData(options, args, inputFile = infile2)
+
+#prepare the plot
+ym1 = quant(data.ok, options.yfrac)
+ym2  = quant(data2.ok, options.yfrac)
+
+ymax = max(ym1, ym2)
+
+l.critical('y1 %s %s' % (ym1, data.median))
+l.critical('y2 %s %s' % (ym2, data2.median))
+l.critical('ym %s' % (ymax))
+
+if indir1[-1] == '/': indir1 = indir1[:-1]
+if indir2[-1] == '/': indir2 = indir2[:-1]
+
+title1 = os.path.basename(indir1)
+title2 = os.path.basename(indir2)
+
+plot = hagfishPlot(
+    options, data, 
+    data2=data2, ymax = ymax,
+    title='comparative plot %s vs %s' % (title1, title2))
+
+class plotter(hagfishPlotBand):
+    
+    def plotBand(self):
+        self.l.debug("Start plotting")
+        yc = self.yCorrection
+
+        median1 = self.data.median
+        median2 = self.data2.median
+
+        self.ax.fill_between(
+            self.locx, 
+            self.zero  + yc,
+            (self.d1.low) + yc, 
+            color = COLOR3)
+
+        self.ax.fill_between(
+            self.locx, 
+            self.d1.low + yc, 
+            self.d1.low + self.d1.ok + yc, 
+            color = COLOR1)
+
+        self.ax.fill_between(
+            self.locx, 
+            self.d1.low + self.d1.ok + yc, 
+            self.d1.low + self.d1.ok + self.d1.high + yc, 
+            color = COLOR2)
+
+        self.ax.fill_between(
+            self.locx, 
+            self.zero  + yc,
+            -self.d2.low + yc, 
+            color = COLOR3)
+
+        self.ax.fill_between(
+            self.locx, 
+            -self.d2.low + yc, 
+            -self.d2.low - self.d2.ok + yc, 
+            color = COLOR1)
+
+        self.ax.fill_between(
+            self.locx, 
+            -self.d2.low - self.d2.ok + yc, 
+            -self.d2.low - self.d2.ok - self.d2.high + yc, 
+            color = COLOR2)
+
+        self.ax.plot(self.locx, self.d1.low + yc, zorder=5, 
+                     linewidth=0.5, color='black')
+        self.ax.plot(self.locx, -self.d2.low + yc, zorder=5, 
+                     linewidth=0.5, color='black')
+
+        self.ax.plot(self.locx, self.d1.low + self.d1.ok + yc, zorder=5, 
+                     linewidth=0.5, color='black')
+        self.ax.plot(self.locx, -self.d2.low - self.d2.ok + yc, zorder=5, 
+                     linewidth=0.5, color='black')
+
+        self.ax.plot(self.locx, self.d1.low + self.d1.ok + self.d1.high + yc, 
+                     zorder=5, linewidth=0.5, color='black')
+        self.ax.plot(self.locx, -self.d2.low - self.d2.ok -self.d2.high + yc, 
+                     zorder=5, linewidth=0.5, color='black')
+
+
+
+        if options.score:
+
+            score1 = 0.5 * self.plot.maxY * (
+                1 - 2 * np.exp(-1 * (self.d1.ok / median1))
+                + np.exp(-1 * ( ( self.d1.ok + self.d1.low + self.d1.high) / median1))
+                )
+
+            score2 = 0.5 * self.plot.maxY * (
+                1 - 2 * np.exp(-1 * (self.d2.ok / median2))
+                + np.exp(-1 * ( ( self.d2.ok + self.d2.low + self.d2.high) / median2))
+                )
+
+            self.ax.plot(self.locx, (score1 - score2) + yc, color='black', linewidth=2)
+
+        self.ax.text(0.01 * len(self.locx), yc + (0.9 * self.plot.maxY), title1, 
+                     verticalalignment='center',
+                     bbox=dict(facecolor='white', alpha=0.6, zorder=20),
+                     )
+        self.ax.text(0.01 * len(self.locx), yc - (0.9 * self.plot.maxY), title2,
+                     verticalalignment='center',
+                     bbox=dict(facecolor='white', alpha=0.6, zorder=20),
+                     )
+
+
+        
+    def setYticks2(self):
+        self.plot.yTicks2.append(self.yCorrection - self.data.medianH)
+        self.plot.yTicks2.append(self.yCorrection)
+        self.plot.yTicks2.append(self.yCorrection + self.data.medianH)
+        self.plot.yTickLabels2.append("%s" % -self.data.medianH)
+        self.plot.yTickLabels2.append("0")
+        self.plot.yTickLabels2.append("%s" % self.data.medianH)
+        self.ax.axhline(
+            self.yCorrection - self.data.medianH,
+            alpha=0.3,
+            color='black')
+        self.ax.axhline(
+            self.yCorrection + self.data.medianH,
+            alpha=0.3,
+            color='black')
+        
+plot.plotBands(plotter)
+plot.save(tag='%s.%s.comp' % (title1,title2))
+
+ 
