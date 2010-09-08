@@ -1,3 +1,9 @@
+#
+# Copyright 2010 Mark Fiers
+# This tool is part of Hagfish & distributed under the GPL
+# please see COPYING for details
+#
+
 import os
 import math
 import copy
