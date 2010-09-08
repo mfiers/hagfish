@@ -69,11 +69,11 @@ class plotter(hagfishPlotBand):
 
 plot.plotBands(plotter)
 #l.info("attempt colorbar")
-#plt.colorbar(plot.lastBar, ax=plot.ax, orientation="horizontal", format="%s",
-#             ticks=[1, 0, -1],
-#             aspect=80,
-#             pad=0.3,
-#             )
+plt.colorbar(plot.lastBar, ax=plot.ax, orientation="horizontal", format="%s",
+             ticks=[1, 0, -1],
+             aspect=80,
+             pad=0.3,
+             )
 
 plot.save(tag='block')
 

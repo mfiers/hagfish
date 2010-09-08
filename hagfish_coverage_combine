@@ -60,6 +60,9 @@ if __name__ == '__main__':
         r_ok = None
         r_low = None
         r_high = None
+        r_ok_ends = None
+        r_low_ends = None
+        r_high_ends = None
         r_low_binned = None
         r_high_binned = None
         bins_low = []
@@ -80,8 +83,14 @@ if __name__ == '__main__':
                 r_ok = data['r_ok']
                 r_high = data['r_high']
                 r_low = data['r_low']
+
+                r_ok_ends = data['r_ok_ends']
+                r_high_ends = data['r_high_ends']
+                r_low_ends = data['r_low_ends']
+
                 r_low_binned = data['r_low_binned']
                 r_high_binned = data['r_high_binned']
+
                 bins_low = data['bins_low']
                 bins_high = data['bins_high']
             else:
@@ -93,6 +102,11 @@ if __name__ == '__main__':
                 r_ok += data['r_ok']
                 r_high += data['r_high']
                 r_low += data['r_low']
+
+                r_ok_ends += data['r_ok_ends']
+                r_high_ends += data['r_high_ends']
+                r_low_ends += data['r_low_ends']
+
                 r_low_binned += data['r_low_binned']
                 r_high_binned += data['r_high_binned']
 
@@ -105,6 +119,11 @@ if __name__ == '__main__':
                      r_ok = r_ok,
                      r_high = r_high,
                      r_low = r_low,
+
+                     r_ok_ends = r_ok_ends,
+                     r_high_ends = r_high_ends,
+                     r_low_ends = r_low_ends,
+
                      r_low_binned = r_low_binned ,
                      r_high_binned =  r_high_binned,
                      bins_low = bins_low,
