@@ -1,8 +1,6 @@
-Hagfish
+Hagfish - Creative use of dotplots in NGS data analysis
 
 Copyright 2010 Mark Fiers
-
-Creative use of dotplots. 
 
 Hagfish can be used for multiple purposes
 
@@ -13,7 +11,7 @@ Hagfish can be used for multiple purposes
   genomes
 
 Using hagfish requires you to have a reference genome and a
-resequencing, paired end, dataset. Hagfish becomes more powerfull if
+resequencing, paired end, dataset. Hagfish becomes more powerful if
 the paired ends are at least one or two kb apart.
 
 PREREQS
