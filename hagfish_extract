@@ -1,10 +1,4 @@
 #!/usr/bin/env python
-#
-# Copyright 2010 Mark Fiers
-# This tool is part of Hagfish & distributed under the GPL
-# please see COPYING for details
-#
-
 
 import os
 import sys
@@ -37,15 +31,10 @@ parser.add_option('--skip_stats' , dest='skipStat', action="store_true",
 
 parser.add_option('--skip_coverage' , dest='skipCoverage', action="store_true",
                   help='Skip generating of the coverage plots')
-parser.add_option('--skip_binning' , dest='skipBinning', action="store_true",
-                  help='Skip generating the bin matrici')
 
 parser.set_defaults(maxInsert='20000')
 parser.add_option('--max', dest='maxInsert', 
-                   help='max insert size to consider while creating the ' +
-                  'coverage plots')
-parser.add_option('--bin', dest='binSize', type='int', default=100,
-                   help='binSize for the bin plots')
+                   help='max insert size to consider while creating the coverage plots')
 
 parser.set_defaults(minLen='10000')
 parser.add_option('--minLen', dest='minLen',
@@ -113,8 +102,7 @@ def getSequenceInfo(inputFile):
             else:
                 if seqInfo[seqId]['length'] != seqLen:
                     raise(Exception("problem with seqlen"))
-                #print 'adding %s %s' % ( seqId, seqLen)
-                #seqInfo[seqId]['seenIn'].append(inputFile)
+                seqInfo[seqId]['seenIn'].append(inputFile)
 
     #write a seqinfo file to disk - for a later call
     with open(seqInfoFile, 'w') as F:
@@ -317,38 +305,6 @@ def parseBam(seqInfo, inputFileName):
     
     return readPairs
 
-def binThem(bamBase, seqInfo, readPairs, stats):
-    """
-    """
-    if not os.path.exists('bins'):
-        os.makedirs('bins')
-        
-    minSeqLen = int(float(options.minLen))
-    for seqId in seqInfo.keys():
-        
-        if seqInfo[seqId]['length'] < minSeqLen: continue
-
-        l.info("Processing %s (len %d)" % (seqId, seqInfo[seqId]['length']))
-        rp = readPairs[seqId]
-        seqLen = seqInfo[seqId]['length']
-        noBins = 1 + int(seqLen / options.binSize)
-        noYBins = 1+int(150000 / options.binSize)
-        l.info("Create %d bins of size %d" % (noBins, options.binSize))
-        l.debug("create bin array")
-        bins = np.zeros((noBins, noYBins), dtype=np.int)
-
-        def ff(a1, a2, b1, b2):
-            aBin = int(a1 / options.binSize)
-            bBin = aBin - int(b1 / options.binSize)
-            
-            bins[aBin][bBin] += 1
-            
-        FF=np.vectorize(ff)
-        FF(rp['start1'], rp['stop1'], rp['start2'], rp['stop2'])
-
-        np.savez(os.path.join('bins', bamBase + '.bins'),
-                 bins = bins)
-        
 def normalizeSortReadPairs(bamBase, seqInfo, readPairs, stats):
     """
     normalize and sort the readpairs 
@@ -386,7 +342,7 @@ def normalizeSortReadPairs(bamBase, seqInfo, readPairs, stats):
 
         covPlotCount += 1
         if covPlotCount % 5000 == 0:
-            l.debug("Calculated %d coverage plots (starting %s now)" % (covPlotCount, seqId))
+            l.debug("Calculated %d coverage plots (startin %s now)" % (covPlotCount, seqId))
 
         l.debug("start calculating coverage plots for %s" % seqId)
 
@@ -532,5 +488,4 @@ if __name__ == '__main__':
             #Sort the readpairs
             normalizeSortReadPairs(bamBase, seqInfo, readPairs, stats)
 
-        if not options.skipBinning:
-            binThem(bamBase, seqInfo, readPairs, stats)
+
