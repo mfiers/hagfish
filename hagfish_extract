@@ -438,8 +438,13 @@ def binThem(bamBase, seqInfo, readPairs, stats):
     """
     if not os.path.exists('bins'):
         os.makedirs('bins')
-        
+
+    bindir = os.path.join('bins', bamBase) 
+    if not os.path.exists(bindir):
+        os.makedirs(bindir)
+
     minSeqLen = int(float(options.minLen))
+    
     for seqId in seqInfo.keys():
         
         if seqInfo[seqId]['length'] < minSeqLen: continue
@@ -454,16 +459,17 @@ def binThem(bamBase, seqInfo, readPairs, stats):
         bins = np.zeros((noBins, noYBins), dtype=np.int)
 
         def ff(a1, a2, b1, b2):
-            aBin = int(a1 / options.binSize)
-            bBin = aBin - int(b1 / options.binSize)
-            
-            bins[aBin][bBin] += 1
+            mid = int((a1 + (0.5 * (b2 - a1)))/options.binSize)
+            bsz = int(((b2 - a1) - stats['median'])/options.binSize)
+            bins[mid][bsz] += 1
             
         FF=np.vectorize(ff)
         FF(rp['start1'], rp['stop1'], rp['start2'], rp['stop2'])
 
-        np.savez(os.path.join('bins', bamBase + '.bins'),
-                 bins = bins)
+        outFile = os.path.join('bins', bamBase, '%s.bins' % seqId)
+        np.savez(outFile,
+                 bins = bins,
+                 binSize = options.binSize)
 
 def readBamDataFromDisk(seqInfo, bamBase):
     readPairs = {}
