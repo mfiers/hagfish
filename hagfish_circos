@@ -1,0 +1,128 @@
+#!/usr/bin/env python
+
+import os
+import sys
+import pickle
+
+import numpy as np
+
+import logging
+import optparse
+
+## Arguments: General options 
+parser = optparse.OptionParser()
+parser.set_defaults(binSize=500)
+parser.add_option('-v', dest='verbose', action="count", 
+                  help='Show debug information')
+parser.add_option('-b', dest='binSize',  type='int',
+                  help='binSize')
+parser.add_option('-s', dest='seqId',  
+                  help='seqId to use in the output..')
+
+options, args = parser.parse_args()
+
+l = logging.getLogger('hagfish')
+handler = logging.StreamHandler()
+logmark = chr(27) + '[0;37;44mHAGFISH' + \
+          chr(27) + '[0m ' 
+
+formatter = logging.Formatter(
+    logmark + '%(levelname)-6s %(message)s')
+
+handler.setFormatter(formatter)
+l.addHandler(handler)
+
+if options.verbose >= 2:
+    l.setLevel(logging.DEBUG)
+elif options.verbose == 1:
+    l.setLevel(logging.INFO)
+else:
+    l.setLevel(logging.WARNING)
+
+
+def generate_histogram(F,
+                       seqId,
+                       group,
+                       data, 
+                       bin):
+    
+    for r in range(0, len(data)+bin-1,bin):
+        score = np.average(data[r:r+bin-1])
+        if not np.isnan(score):
+            F.write("%s %d %d %.2f\n" % (
+                seqId, r+1, r+bin, score))            
+            
+if __name__ == '__main__':
+    
+    #read an arbitrary seqId file
+    for f in os.listdir('seqInfo'):
+        if '.seqinfo' in f:
+            seqInfoFile = os.path.join('seqInfo', f)
+            break
+        else:
+            l.critical("cannot find a seqInfo file")
+            sys.exit(-1)
+
+    l.info("reading %s to get seqinfo" % seqInfoFile)
+    with open(seqInfoFile) as F:
+        seqInfo = pickle.load(F)
+        
+    l.info("discovered %d sequences" % len(seqInfo))
+
+    binSize = options.binSize
+    if len(args) > 0:
+        seqIds = args
+    else:
+        seqIds = seqInfo.keys()
+
+    if not os.path.exists('circos'):
+        os.mkdir('circos')
+
+    if options.seqId: assert(len(seqIds) == 1)
+        
+    for seqId in seqIds:
+        l.info("Processing %s" % seqId)
+        
+        if options.seqId:
+            outSeqId = options.seqId
+        else:
+            outSeqId = seqId
+
+        l.info("Outputting %s" % outSeqId)
+        
+        FG = open(os.path.join('circos', '%s.ok.txt' % (outSeqId)), 'w')
+        FS = open(os.path.join('circos', '%s.short.txt' % (outSeqId)), 'w')
+        FL = open(os.path.join('circos', '%s.long.txt' % (outSeqId)), 'w')
+        FC = open(os.path.join('circos', '%s.score.txt' % (outSeqId)), 'w')
+
+        coverageFile = os.path.join('combined', '%s.combined.coverage.npz' % seqId)
+        
+        if not os.path.exists(coverageFile):
+            l.warning("No coverage file found: %s" % coverageFile)
+            continue
+        l.info('processing %s' % coverageFile)
+        data = np.load(coverageFile)
+        
+        r_ok = data['r_ok']
+        r_low = data['r_low']
+        r_high = data['r_high']
+
+        l.info("read %d datapoints" % len(r_ok))
+        median = np.median(r_ok)
+        score = 1 - 2 * np.exp(-1 * (r_ok / median)) \
+                + np.exp(-1 * ((r_ok + r_low + r_high)/median))
+
+        seqLen = len(r_ok)
+        l.info("sequence length of %s is %d" % (seqId, seqLen))
+
+       
+        generate_histogram(FG, outSeqId, 'ok', r_ok, binSize)
+        generate_histogram(FS, outSeqId, 'short', r_low, binSize)
+        generate_histogram(FL, outSeqId, 'long', r_high, binSize)
+        generate_histogram(FC, outSeqId, 'score', score, binSize)
+
+        FG.close()
+        FS.close()
+        FL.close()
+        FC.close()
+

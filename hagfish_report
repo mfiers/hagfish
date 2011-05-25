@@ -1,0 +1,92 @@
+#!/usr/bin/env python
+import os
+import sys
+import pickle
+
+import numpy as np
+import matplotlib as mpl
+mpl.use('agg')
+import matplotlib.pyplot as plt
+import matplotlib.mlab as mlab
+
+import logging
+import optparse
+
+## Arguments: General options 
+parser = optparse.OptionParser()
+parser.add_option('-v', dest='verbose', action="count", 
+                  help='Show debug information')
+
+options, args = parser.parse_args()
+
+l = logging.getLogger('hagfish')
+handler = logging.StreamHandler()
+logmark = chr(27) + '[0;37;44mHAGFISH' + \
+          chr(27) + '[0m ' 
+
+formatter = logging.Formatter(
+    logmark + '%(levelname)-6s %(message)s')
+
+handler.setFormatter(formatter)
+l.addHandler(handler)
+
+if options.verbose >= 2:
+    l.setLevel(logging.DEBUG)
+elif options.verbose == 1:
+    l.setLevel(logging.INFO)
+else:
+    l.setLevel(logging.WARNING)
+
+if __name__ == '__main__':
+
+    #read an arbitrary seqId file
+    for f in os.listdir('seqInfo'):
+        if '.seqinfo' in f:
+            seqInfoFile = os.path.join('seqInfo', f)
+            break
+        else:
+            l.critical("cannot find a seqInfo file")
+            sys.exit(-1)
+
+    l.info("reading %s for seqinfo" % seqInfoFile)
+    with open(seqInfoFile) as F:
+        seqInfo = pickle.load(F)
+        
+    l.info("discovered %d sequences" % len(seqInfo))
+
+    if len(seqInfo) > 18:
+        l.info("too many sequences - not making seq reports")
+        sys.exit(0)
+        
+    for seqId in seqInfo.keys():
+
+        #read the coverage plots
+        inputFile = os.path.join('combined', seqId + '.combined.coverage.npz')
+        data = np.load(inputFile)
+        r_ok = data['r_ok']
+        r_high = data['r_high']
+        r_low = data['r_low']
+
+        maxx = max(max(r_ok), max(r_high), max(r_low))
+        maxx = 1000 * ( ( maxx / 1000 ) + 1 )
+        
+        #bin the coverage graph
+        fig = plt.figure()
+        bins =  np.array([0,1,2,3,4] + range(5, maxx))
+        
+        ax = fig.add_subplot(111)
+        plt.title('Coverage distribution for sequence "%s"' % seqId,
+                  fontdict={'size' : 10})
+        ax.set_xlabel('log(coverage)')
+        ax.set_ylabel('log(no nucleotides with coverage)')
+        oh, oe = np.histogram(r_ok, bins = bins)
+        hh, he = np.histogram(r_high, bins = bins)
+        lh, le = np.histogram(r_low, bins = bins)
+        ax.plot(np.log10(he[:-1]), np.log10(hh), 'r-',
+                label="long insert")
+        ax.plot(np.log10(oe[:-1]), np.log10(oh), 'g-',
+                label="correct insert")
+        ax.plot(np.log10(le[:-1]), np.log10(lh), 'b-',
+                label="short insert")
+        ax.legend(prop={'size' :'x-small'})
+        plt.savefig(os.path.join(seqId + '.report.hist.png'))

@@ -110,22 +110,23 @@ if __name__ == '__main__':
                 r_low_binned += data['r_low_binned']
                 r_high_binned += data['r_high_binned']
 
-            l.debug("Max low ok high %d %d %d" % (
+            l.info("Max low: %d / Max ok: %d / Max high: %d" % (
                     np.max(r_low), np.max(r_ok), np.max(r_high)))
 
-
-        if r_ok != None and np.max(r_ok) > 0:
-            np.savez(os.path.join('combined', seqId + '.combined.coverage'),
-                     r_ok = r_ok,
-                     r_high = r_high,
-                     r_low = r_low,
-
-                     r_ok_ends = r_ok_ends,
-                     r_high_ends = r_high_ends,
-                     r_low_ends = r_low_ends,
-
-                     r_low_binned = r_low_binned ,
-                     r_high_binned =  r_high_binned,
-                     bins_low = bins_low,
-                     bins_high = bins_high)
+        if np.max(r_ok) == 0:
+            l.warning("max(r_ok) == 0 - no decently mapping read pairs found :(")
+            
+        np.savez(os.path.join('combined', seqId + '.combined.coverage'),
+                 r_ok = r_ok,
+                 r_high = r_high,
+                 r_low = r_low,
+                 
+                 r_ok_ends = r_ok_ends,
+                 r_high_ends = r_high_ends,
+                 r_low_ends = r_low_ends,
+                 
+                 r_low_binned = r_low_binned ,
+                 r_high_binned =  r_high_binned,
+                 bins_low = bins_low,
+                 bins_high = bins_high)
  

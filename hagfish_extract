@@ -28,6 +28,14 @@ parser.add_option('-x', dest='limit', type="int",
 parser.add_option('--onlySeqInfo', dest='onlySeqInfo', action='store_true',
                   help='only process the seqInfo of the first bam input file')
 
+parser.add_option('--low', dest='oklow', type="int", default=0,
+                  help='Lower "correct" insert size limit - use this to force ' +
+                  'hagfish to a "ok" range')
+
+parser.add_option('--high', dest='okhigh', type="int", default=0,
+                  help='Higher "correct" insert size limit - use this to force ' +
+                  'hagfish to a "ok" range')
+
 parser.add_option('--skip_read' , dest='skipRead', action="store_true",
                   help='Skip reading the BAM files, read the parsed BAM files ' + 
                   'directly from disk')
@@ -123,22 +131,22 @@ def getSequenceInfo(inputFile):
     return seqInfo
     
 def readBAM(fileName):
-    p = run("samtools view -f 2 %s" % fileName)
+    i = 0
+    p = run("samtools view -f 67 %s" % fileName)
     while True:
-        line1 = p.stdout.readline()
-        if not line1: break
-        line1 = line1.strip()
-        if not line1: continue
-        if line1[0] == '@': continue
-        line2 = p.stdout.readline()
-
-        l1 = line1.split()
-        l2 = line2.split()
+        line = p.stdout.readline()
+        if not line: break
+        line = line.strip()
+        if not line: continue
+        if line[0] == '@': continue
+        i += 1
+        
+        l1 = line.split()
 
         rl = len(l1[9])
         seqid = l1[2]
         start1 = int(l1[3])
-        start2 = int(l2[3])
+        start2 = int(l1[7])
 
         if start1 > start2:
             start1, start2 = start2, start1
@@ -146,6 +154,12 @@ def readBAM(fileName):
         stop1 = start1 + rl
         stop2 = start2 + rl
 
+        if i < 10:
+            l.debug("read %4d : < %6d --(%3d)-- %6d > in %6d out %6d  < %6d --(%3d)-- %6d >" % (
+                i, start1, stop1 - start1, stop1,
+                start2 - stop1,
+                stop2 - start1,
+                start2, stop2-start2, stop2))
         yield seqid, start1, stop1, start2, stop2, 
 
 def smoother(a, steps):
@@ -184,8 +198,8 @@ def doStats(bamname, seqInfo, readPairs):
     mids = 0.5 * (edges[1:] + edges[:-1])
 
     #smooth the histogram (using a moving average)
-    shist = smoother(hist, 15)
-    smids = smoother(mids, 15)
+    shist = smoother(hist, 3)
+    smids = smoother(mids, 3)
     
     # find the top of the peak
     top = np.argmax(shist)
@@ -206,8 +220,21 @@ def doStats(bamname, seqInfo, readPairs):
             (shist[rghtB+1] < shist[rghtB]) and \
             rghtB < len(shist): rghtB += 1
     topRight = smids[rghtB]        
-    stats['left'] = topLeft
-    stats['right'] = topRight
+
+
+    if options.oklow > 0:
+        l.info("Forcing min ok insert size to %s" % options.oklow)
+        stats['left'] = options.oklow
+    else:
+        l.info("Estimating min ok insert size as %s" % topLeft)
+        stats['left'] = topLeft
+        
+    if options.okhigh > 0:
+        l.info("Forcing max ok insert size to %s" % options.okhigh)
+        stats['right'] = options.okhigh
+    else:
+        l.info("Estimating max ok insert size as %s" % topRight)
+        stats['right'] = topRight
 
     # plot a figure
     l.info('plotting figure')
@@ -219,17 +246,95 @@ def doStats(bamname, seqInfo, readPairs):
             label = "Smoothed histogram")
     ax.plot(mids, hist, 'red', label='histogram')
     minY, maxY = ax.get_axes().get_ylim()
+    if minY<= 0: minY = 1
+    ax.vlines(topInsert,minY,maxY, 'g',  linestyles='dotted',
+              label='Peak top (%d)' % int(topInsert))
+    ax.vlines(topLeft,minY,maxY, 'b', linestyles='dotted', 
+              label='estimated left border peak (%d)' % int(topLeft))
+    ax.vlines(topRight,minY,maxY, 'r', linestyles='dotted', 
+              label='estimated right border peak (%d)' % int(topRight))
+
+    if options.oklow > 0:
+        ax.vlines(options.oklow,minY,maxY, 'b', linestyles='dashed', 
+                  label='forced left border peak (%d)' % options.oklow)
+    if options.okhigh > 0:
+        ax.vlines(options.okhigh,minY,maxY, 'r', linestyles='dashed', 
+                  label='forced right border peak (%d)' % options.okhigh)
+
+    ax.legend(prop={'size' :'x-small'})
+    
+    ax.set_xlim(0, min(maxHist, (2 * np.max(insertSizes))))
+    plt.savefig(os.path.join('stats', bamname + '.hist.png'))
+
+    # Do a log scaled version of the same figure
+    ax.set_yscale('log')
+
+    plt.savefig(os.path.join('stats', bamname + '.log.hist.png'))
+
+    l.info('plotting log figure')
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    plt.title('Insert size distribution for %s' % bamname,
+              fontdict={'size' : 10})
+    ax.plot(
+        smids,
+        np.log10(shist),
+        '#8888ff', linewidth=5,
+        label = "Smoothed histogram")
+    ax.plot(
+        mids,
+        np.log10(hist),
+        'red', label='histogram')
+    minY, maxY = ax.get_axes().get_ylim()
 
     ax.vlines(topInsert,minY,maxY, 'g',  linestyles='dotted',
               label='Peak top')
     ax.vlines(topLeft,minY,maxY, 'b', linestyles='dotted', 
-              label='left border peak')
+              label='estimated left border peak')
     ax.vlines(topRight,minY,maxY, 'r', linestyles='dotted', 
-              label='rigth border peak')
+              label='estimated right border peak')
+
+    if options.oklow > 0:
+        ax.vlines(topLeft,minY,maxY, 'b', linestyles='dashed', 
+                  label='forced left border peak')
+    if options.okhigh > 0:
+        ax.vlines(topRight,minY,maxY, 'r', linestyles='dashed', 
+                  label='forced right border peak')
 
     ax.legend(prop={'size' :'x-small'})
+    
     ax.set_xlim(0, min(maxHist, (2 * np.max(insertSizes))))
-    plt.savefig(os.path.join('stats', bamname + '.hist.png'))
+    plt.savefig(os.path.join('stats', bamname + 'log..hist.png'))
+
+
+    # And a thumbnail figure as well
+    l.info('plotting thumbnail figure')
+
+    fig = plt.figure()
+    ax = plt.axes([0,0,1,1])
+    #ax = fig.axes([0,0,1,1], frame_on=False)
+    ax.xaxis.set_visible(False)
+    ax.yaxis.set_visible(False)
+    ax.fill_between(
+        mids, hist,
+        where=hist>0,
+        facecolor='red',
+        edgecolor=None)
+    minY, maxY = ax.get_axes().get_ylim()
+    if options.oklow > 0:
+        ax.vlines(topLeft,minY,maxY, 'b', linestyles='dashed')
+    else:
+        ax.vlines(topLeft,minY,maxY, 'b', linestyles='dotted')
+
+    if options.okhigh > 0:
+        ax.vlines(topRight,minY,maxY, 'r', linestyles='dashed')
+    else:
+        ax.vlines(topRight,minY,maxY, 'r', linestyles='dotted')
+
+    ax.set_xlim(0, min(maxHist, (2 * np.max(insertSizes))))
+    plt.savefig(
+        os.path.join('stats', bamname + '.thumb.hist.png'),
+        dpi=20)
 
     #write stats file for this library
     with open(os.path.join('stats', bamname + '.stats'), 'w') as F:
