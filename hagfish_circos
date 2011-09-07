@@ -95,6 +95,10 @@ if __name__ == '__main__':
         FL = open(os.path.join('circos', '%s.long.txt' % (outSeqId)), 'w')
         FC = open(os.path.join('circos', '%s.score.txt' % (outSeqId)), 'w')
 
+        FGE = open(os.path.join('circos', '%s.ok_ends.txt' % (outSeqId)), 'w')
+        FSE = open(os.path.join('circos', '%s.short_ends.txt' % (outSeqId)), 'w')
+        FLE = open(os.path.join('circos', '%s.long_ends.txt' % (outSeqId)), 'w')
+        
         coverageFile = os.path.join('combined', '%s.combined.coverage.npz' % seqId)
         
         if not os.path.exists(coverageFile):
@@ -106,6 +110,9 @@ if __name__ == '__main__':
         r_ok = data['r_ok']
         r_low = data['r_low']
         r_high = data['r_high']
+        r_ok_ends = data['r_ok_ends']
+        r_low_ends = data['r_low_ends']
+        r_high_ends = data['r_high_ends']
 
         l.info("read %d datapoints" % len(r_ok))
         median = np.median(r_ok)
@@ -119,10 +126,19 @@ if __name__ == '__main__':
         generate_histogram(FG, outSeqId, 'ok', r_ok, binSize)
         generate_histogram(FS, outSeqId, 'short', r_low, binSize)
         generate_histogram(FL, outSeqId, 'long', r_high, binSize)
+
+        generate_histogram(FGE, outSeqId, 'ok_ends', r_ok_ends, binSize)
+        generate_histogram(FSE, outSeqId, 'short_ends', r_low_ends, binSize)
+        generate_histogram(FLE, outSeqId, 'long_ends', r_high_ends, binSize)
+
         generate_histogram(FC, outSeqId, 'score', score, binSize)
 
         FG.close()
         FS.close()
         FL.close()
         FC.close()
+
+        FGE.close()
+        FSE.close()
+        FLE.close()
 

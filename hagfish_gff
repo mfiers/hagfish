@@ -45,7 +45,8 @@ def generate_histogram(F,
                        group,
                        data, 
                        bin,
-                       source):
+                       source,
+                       seqLen):
     
     if bin == 1:
         for i in range(len(data)):
@@ -63,34 +64,42 @@ def generate_histogram(F,
                         ]) + "\n")
     else:
         for r in range(0, len(data)+bin-1,bin):
+            bestart = r+1
+            if bestart > seqLen:
+                continue
+            beend = min(seqLen+1, r+bin)
+            va = '%.1f' % np.average(data[r:r+bin-1])
+            if va == 'nan': va = '0'
+        
+
             F.write("\t".join([
-                        seqId,
-                        source,
-                        'bin_%s_%s' % (group, bin),
-                        str(r+1),
-                        str(r+bin),
-                        '%.1f' % np.average(data[r:r+bin-1]),
-                        '+',
-                        '.',
-                        'bin %s_%s' % (source, seqId)
-                        ]) + "\n")
+                seqId,
+                source,
+                'bin_%s_%s' % (group, bin),
+                str(bestart),
+                str(beend),
+                va,
+                '+',
+                '.',
+                'bin %s_%s' % (source, seqId)
+                ]) + "\n")
             
 if __name__ == '__main__':
     
-    #read an arbitrary seqId file
+    #read all seqId file
+    seqInfo = {}
     for f in os.listdir('seqInfo'):
         if '.seqinfo' in f:
             seqInfoFile = os.path.join('seqInfo', f)
-            break
-        else:
-            l.critical("cannot find a seqInfo file")
-            sys.exit(-1)
-
-    l.info("reading %s to get seqinfo" % seqInfoFile)
-    with open(seqInfoFile) as F:
-        seqInfo = pickle.load(F)
+            l.info("reading %s to get seqinfo" % seqInfoFile)
+            with open(seqInfoFile) as F:
+                _tsi = pickle.load(F)
+                seqInfo.update(_tsi)
+    if not seqInfo:
+        l.critical("cannot find a seqInfo file")
+        sys.exit(-1)
         
-    l.info("discovered %d sequences" % len(seqInfo))
+    l.info("Found %d sequences" % len(seqInfo))
 
     binSize = options.binSize
     if len(args) > 0:
@@ -101,11 +110,21 @@ if __name__ == '__main__':
     if not os.path.exists('gff'):
         os.mkdir('gff')
 
-    FG = open(os.path.join('gff', 'coverage.ok.%d.gff' % binSize), 'w')
-    FS = open(os.path.join('gff', 'coverage.short.%d.gff' % binSize), 'w')
-    FL = open(os.path.join('gff', 'coverage.long.%d.gff' % binSize), 'w')
-
     for seqId in seqIds:
+
+        FG = open(os.path.join('gff', '%s.ok.%d.gff' % (seqId, binSize)), 'w')
+        FS = open(os.path.join('gff', '%s.short.%d.gff' % (seqId, binSize)), 'w')
+        FL = open(os.path.join('gff', '%s.long.%d.gff' % (seqId, binSize)), 'w')
+
+        FG.write("##gff-version 3\n")
+        FS.write("##gff-version 3\n")
+        FL.write("##gff-version 3\n")
+        seqLen = seqInfo[seqId]['length']
+        
+        FG.write("##sequence-region %s 1 %d\n" % (seqId, seqLen))
+        FS.write("##sequence-region %s 1 %d\n" % (seqId, seqLen))
+        FL.write("##sequence-region %s 1 %d\n" % (seqId, seqLen))
+
         coverageFile = os.path.join('combined', '%s.combined.coverage.npz' % seqId)
         if not os.path.exists(coverageFile):
             continue
@@ -115,14 +134,20 @@ if __name__ == '__main__':
         r_low = data['r_low']
         r_high = data['r_high']
 
+        if not np.any(r_ok):
+            l.error("Error reading data for %s" % seqId)
+            l.error(" .. in %s" % os.getcwd())
+            continue
+    
         seqLen = len(r_ok)
         l.info("sequence length of %s is %d" % (seqId, seqLen))
-        
-        generate_histogram(FG, seqId, 'ok', r_ok, binSize, options.source)
-        generate_histogram(FS, seqId, 'short', r_low, binSize, options.source)
-        generate_histogram(FL, seqId, 'long', r_high, binSize, options.source)
+        generate_histogram(FG, seqId, 'ok',    r_ok,   binSize, options.source, seqLen)
+        generate_histogram(FS, seqId, 'short', r_low,  binSize, options.source, seqLen)
+        generate_histogram(FL, seqId, 'long',  r_high, binSize, options.source, seqLen)
 
-    FG.close()
-    FS.close()
-    FL.close()
+        FG.close()
+        FS.close()
+        FL.close()
+        
+        l.info("Finished processing %s" % seqId)
 

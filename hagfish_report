@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import os
 import sys
+import math
 import pickle
 
 import numpy as np
@@ -60,6 +61,8 @@ if __name__ == '__main__':
         
     for seqId in seqInfo.keys():
 
+        seqLen = seqInfo[seqId]['length']
+        l.info("processing %s (%d nt)" % (seqId, seqLen))
         #read the coverage plots
         inputFile = os.path.join('combined', seqId + '.combined.coverage.npz')
         data = np.load(inputFile)
@@ -71,22 +74,106 @@ if __name__ == '__main__':
         maxx = 1000 * ( ( maxx / 1000 ) + 1 )
         
         #bin the coverage graph
-        fig = plt.figure()
-        bins =  np.array([0,1,2,3,4] + range(5, maxx))
-        
-        ax = fig.add_subplot(111)
-        plt.title('Coverage distribution for sequence "%s"' % seqId,
-                  fontdict={'size' : 10})
-        ax.set_xlabel('log(coverage)')
-        ax.set_ylabel('log(no nucleotides with coverage)')
+        bins =  np.array([1,2,3,4] + range(5, maxx))
+        #bins = np.array([0,1,2,3,4,5,6,7,8] +  range(3, int(math.sqrt(maxx))+1))
+        #print bins
         oh, oe = np.histogram(r_ok, bins = bins)
         hh, he = np.histogram(r_high, bins = bins)
         lh, le = np.histogram(r_low, bins = bins)
-        ax.plot(np.log10(he[:-1]), np.log10(hh), 'r-',
-                label="long insert")
-        ax.plot(np.log10(oe[:-1]), np.log10(oh), 'g-',
+        mids = 0.5 * (oe[:-1] + oe[1:])
+
+        #print normal plot
+        fig = plt.figure()                
+        ax = fig.add_subplot(111)
+        plt.title('Coverage distribution for sequence "%s"' % seqId,
+                  fontdict={'size' : 10})
+        ax.set_xlabel('coverage')
+        ax.set_ylabel('no nucleotides with coverage')        
+
+        ax.plot((he[:-1]), (hh), c='#B73147',
+                 label="long insert")
+        ax.plot((oe[:-1]), (oh), c='#3BB058',
                 label="correct insert")
-        ax.plot(np.log10(le[:-1]), np.log10(lh), 'b-',
+        ax.plot((le[:-1]), (lh), c='#538ABF',
                 label="short insert")
+        
+        minX, maxX = ax.get_axes().get_xlim()
+        if minX < 1: minX = 1
+        
+        ax.hlines(seqLen, minX, maxX, linestyles='solid',
+                  linewidth=1, colors="black",
+                  label='Sequence length (%d)' % seqLen)
         ax.legend(prop={'size' :'x-small'})
-        plt.savefig(os.path.join(seqId + '.report.hist.png'))
+        
+        plt.savefig(os.path.join(seqId + '.coverage.distrib.png'))
+
+        ax.set_yscale('log')
+        ax.hlines(seqLen, minX, maxX, linestyles='solid',
+                  linewidth=1, colors="black",
+                  label='Sequence length (%d)' % seqLen)
+
+        plt.savefig(os.path.join(seqId + '.coverage.distrib.log.png'))
+
+        ax.set_yscale('log')        
+        ax.set_xscale('log')
+        ax.hlines(seqLen, minX, maxX, linestyles='solid',
+                  linewidth=1, colors="black",
+                  label='Sequence length (%d)' % seqLen)
+        plt.savefig(os.path.join(seqId + '.coverage.distrib.log2.png'))
+
+        fig = plt.figure()                
+        ax = fig.add_subplot(111)
+        plt.title('Coverage distribution for sequence "%s"' % seqId,
+                  fontdict={'size' : 10})
+        ax.set_xlabel('coverage')
+        ax.set_ylabel('no nucleotides with coverage')        
+
+        ones = np.zeros_like(oh) + 1
+
+        ax.fill_between(
+            oe[:-1],
+            ones,
+            lh+oh+hh,
+            where=(lh + oh + hh)>0,
+            linewidth=0.5,
+            facecolor="#B73147",
+            edgecolor="#54121D"
+            )
+
+        ax.fill_between(
+            oe[:-1],
+            ones,
+            lh+oh,
+            where=(lh+oh)>0,
+            linewidth=0.5,
+            facecolor="#3BB058",
+            edgecolor="#1A612C"
+            )
+
+        ax.fill_between(
+            oe[:-1],
+            ones,
+            lh,
+            where=lh>0,
+            linewidth=0.5,
+            facecolor="#538ABF",
+            edgecolor="#214262"
+            
+            )
+
+        minX, maxX = ax.get_axes().get_xlim()
+        if minX < 1: minX = 1
+        
+        ax.hlines(seqLen, minX, maxX, linestyles='solid',
+                  linewidth=1, colors="black",
+                  label='Sequence length (%d)' % seqLen)
+        ax.legend(prop={'size' :'x-small'})
+        plt.savefig(os.path.join(seqId + '.cumul.coverage.distrib.png'))
+
+        ax.set_yscale('log')        
+        plt.savefig(os.path.join(seqId + '.cumul.coverage.distrib.log.png'))
+
+        ax.set_yscale('log')        
+        ax.set_xscale('log')
+        plt.savefig(os.path.join(seqId + '.cumul.coverage.distrib.log2.png'))
+
