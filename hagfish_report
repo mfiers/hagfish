@@ -37,7 +37,11 @@ elif options.verbose == 1:
 else:
     l.setLevel(logging.WARNING)
 
+
 if __name__ == '__main__':
+
+    if not os.path.exists('report'):
+        os.makedirs('report')
 
     #read an arbitrary seqId file
     for f in os.listdir('seqInfo'):
@@ -57,9 +61,12 @@ if __name__ == '__main__':
     if len(seqInfo) > 18:
         l.info("too many sequences - not making seq reports")
         sys.exit(0)
-        
+
+    seqCount =  0
     for seqId in seqInfo.keys():
 
+        seqCount += 1
+        
         #read the coverage plots
         inputFile = os.path.join('combined', seqId + '.combined.coverage.npz')
         data = np.load(inputFile)
@@ -67,26 +74,128 @@ if __name__ == '__main__':
         r_high = data['r_high']
         r_low = data['r_low']
 
-        maxx = max(max(r_ok), max(r_high), max(r_low))
-        maxx = 1000 * ( ( maxx / 1000 ) + 1 )
-        
-        #bin the coverage graph
-        fig = plt.figure()
-        bins =  np.array([0,1,2,3,4] + range(5, maxx))
-        
-        ax = fig.add_subplot(111)
-        plt.title('Coverage distribution for sequence "%s"' % seqId,
-                  fontdict={'size' : 10})
-        ax.set_xlabel('log(coverage)')
-        ax.set_ylabel('log(no nucleotides with coverage)')
+
+        if seqCount == 1:
+            #determine what the bins are
+            maxx = max(max(r_ok), max(r_high), max(r_low))
+            maxx = 1500 * ( ( maxx / 1000 ) + 1 )             
+            bins =  np.array([0,1,2,3,4] + range(5, maxx))
+
         oh, oe = np.histogram(r_ok, bins = bins)
         hh, he = np.histogram(r_high, bins = bins)
         lh, le = np.histogram(r_low, bins = bins)
-        ax.plot(np.log10(he[:-1]), np.log10(hh), 'r-',
+
+        #we don't want to see the number of nt that have no
+        # high or low coverage..
+        hh[0] = 0
+        lh[0] = 0
+        
+        #calculate the cumulative plots
+        if seqCount == 1:
+            coh, coe = oh, oe
+            chh, che = hh, he
+            clh, cle = lh, le
+            #create a 'zeroes' array
+            zeroes = np.zeros_like(coh)
+        else:
+            coh += oh
+            coe += oe
+            chh += hh
+            che += he
+            clh += lh
+            cle += le
+
+        print oh[0]
+
+
+        #create the coverage graph
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ax.set_yscale('log')
+        ax.set_xscale('log')
+        plt.title('Coverage distribution for sequence "%s"' % seqId,
+                  fontdict={'size' : 10})
+        ax.set_xlabel('coverage')
+        ax.set_ylabel('no nucleotides with coverage x')
+        ax.plot(he[:-1],hh, 'r-',
                 label="long insert")
-        ax.plot(np.log10(oe[:-1]), np.log10(oh), 'g-',
+        ax.plot(oe[:-1], (oh), 'g-',
                 label="correct insert")
-        ax.plot(np.log10(le[:-1]), np.log10(lh), 'b-',
+        ax.plot((le[:-1]), (lh), 'b-',
                 label="short insert")
+        minX, maxX = ax.get_axes().get_xlim()
+        ax.hlines(oh[0],maxX*0.9, maxX * 1.1, 'black', linewidth= 3,
+                  label="NO 'ok' coverage")
+
         ax.legend(prop={'size' :'x-small'})
-        plt.savefig(os.path.join(seqId + '.report.hist.png'))
+        plt.savefig(os.path.join('report', seqId + '.2log.report.png'))
+        
+        #create the coverage graph
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ax.set_yscale('log')
+        plt.title('Coverage distribution for sequence "%s"' % seqId,
+                  fontdict={'size' : 10})
+        ax.set_xlabel('coverage')
+        ax.set_ylabel('no nucleotides with coverage x')
+        ax.plot(he[:-1],hh, 'r-',
+                label="long insert")
+        ax.plot(oe[:-1], (oh), 'g-',
+                label="correct insert")
+        ax.plot((le[:-1]), (lh), 'b-',
+                label="short insert")
+        minX, maxX = ax.get_axes().get_xlim()
+        ax.hlines(oh[0],minX,maxX, 'black', linestyles='dashed',
+                  label="NO 'ok' coverage")
+
+        ax.legend(prop={'size' :'x-small'})
+        plt.savefig(os.path.join('report', seqId + '.log.report.png'))
+
+        #create the coverage graph
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        plt.title('Coverage distribution for sequence "%s"' % seqId,
+                  fontdict={'size' : 10})
+        ax.set_xlabel('coverage')
+        ax.set_ylabel('no nucleotides with coverage x')
+        ax.plot(he[:-1],hh, 'r-',
+                label="long insert")
+        ax.plot(oe[:-1], (oh), 'g-',
+                label="correct insert")
+        ax.plot((le[:-1]), (lh), 'b-',
+                label="short insert")
+
+        minX, maxX = ax.get_axes().get_xlim()
+        ax.hlines(oh[0],minX,maxX, 'black', linestyles='dashed',
+                  label="NO 'ok' coverage")
+
+        ax.legend(prop={'size' :'x-small'})
+        plt.savefig(os.path.join('report', seqId + '.report.png'))
+
+        #and a thumbnail plot
+        #create the cumulative coverage graph
+        fig = plt.figure()
+        ax = plt.axes([0,0,1,1])
+        #ax = fig.axes([0,0,1,1], frame_on=False)
+        ax.xaxis.set_visible(False)
+        ax.yaxis.set_visible(False)
+        ax.fill_between(np.log10(he[:-1]),
+                        zeroes,
+                        np.log10(hh+oh+lh),
+                        where=np.log10(hh+oh+lh)>0,
+                        facecolor="blue",
+                        edgecolor=None)
+        ax.fill_between(np.log10(he[:-1]),
+                        zeroes,
+                        np.log10(hh+oh),
+                        where=np.log10(hh+oh)>0,
+                        facecolor="green",
+                        edgecolor=None)
+        ax.fill_between(np.log10(he[:-1]),
+                        zeroes,
+                        np.log10(hh),
+                        where=np.log10(hh)>0,
+                        facecolor="red",
+                        edgecolor=None)        
+        plt.savefig(os.path.join('report', seqId + '.thumb.report.png'),
+                    dpi=20)
