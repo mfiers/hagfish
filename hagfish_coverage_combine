@@ -71,44 +71,46 @@ if __name__ == '__main__':
         for inputDir in os.listdir('coverage'):
             inputFile = os.path.join('coverage', inputDir, seqId + '.coverage.npz')
             if not os.path.exists(inputFile):
-                l.debug("skiping %s (%d nt)" % (seqId, seqInfo[seqId]['length']))
+                l.debug("skipping %s (%d nt)" % (seqId, seqInfo[seqId]['length']))
                 break
             bamBase = inputDir
 
             l.info("processing %s (%s)" % (bamBase,inputFile))
 
             #read the coverage plots
-            data = np.load(inputFile)
-            if r_ok == None:
-                r_ok = data['r_ok']
-                r_high = data['r_high']
-                r_low = data['r_low']
+            with open(inputFile) as F:
+                data = np.load(F)
 
-                r_ok_ends = data['r_ok_ends']
-                r_high_ends = data['r_high_ends']
-                r_low_ends = data['r_low_ends']
+                if r_ok == None:
+                    r_ok = data['r_ok']
+                    r_high = data['r_high']
+                    r_low = data['r_low']
 
-                r_low_binned = data['r_low_binned']
-                r_high_binned = data['r_high_binned']
+                    r_ok_ends = data['r_ok_ends']
+                    r_high_ends = data['r_high_ends']
+                    r_low_ends = data['r_low_ends']
 
-                bins_low = data['bins_low']
-                bins_high = data['bins_high']
-            else:
-                if (not list(bins_low) == list(data['bins_low'])) or \
-                    (not list(bins_high) == list(data['bins_high'])):
-                    l.critical("different bins!")
-                    sys.exit()
+                    r_low_binned = data['r_low_binned']
+                    r_high_binned = data['r_high_binned']
 
-                r_ok += data['r_ok']
-                r_high += data['r_high']
-                r_low += data['r_low']
+                    bins_low = data['bins_low']
+                    bins_high = data['bins_high']
+                else:
+                    if (not list(bins_low) == list(data['bins_low'])) or \
+                        (not list(bins_high) == list(data['bins_high'])):
+                        l.critical("different bins!")
+                        sys.exit()
 
-                r_ok_ends += data['r_ok_ends']
-                r_high_ends += data['r_high_ends']
-                r_low_ends += data['r_low_ends']
+                    r_ok += data['r_ok']
+                    r_high += data['r_high']
+                    r_low += data['r_low']
 
-                r_low_binned += data['r_low_binned']
-                r_high_binned += data['r_high_binned']
+                    r_ok_ends += data['r_ok_ends']
+                    r_high_ends += data['r_high_ends']
+                    r_low_ends += data['r_low_ends']
+
+                    r_low_binned += data['r_low_binned']
+                    r_high_binned += data['r_high_binned']
 
             l.info("Max low: %d / Max ok: %d / Max high: %d" % (
                     np.max(r_low), np.max(r_ok), np.max(r_high)))

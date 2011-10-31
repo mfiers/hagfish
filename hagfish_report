@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import os
 import sys
+import math
 import pickle
 
 import numpy as np
@@ -66,7 +67,9 @@ if __name__ == '__main__':
     for seqId in seqInfo.keys():
 
         seqCount += 1
-        
+        seqLen = seqInfo[seqId]['length']
+        l.info("processing %s (%d nt)" % (seqId, seqLen))
+
         #read the coverage plots
         inputFile = os.path.join('combined', seqId + '.combined.coverage.npz')
         data = np.load(inputFile)
@@ -90,112 +93,107 @@ if __name__ == '__main__':
         hh[0] = 0
         lh[0] = 0
         
-        #calculate the cumulative plots
-        if seqCount == 1:
-            coh, coe = oh, oe
-            chh, che = hh, he
-            clh, cle = lh, le
-            #create a 'zeroes' array
-            zeroes = np.zeros_like(coh)
-        else:
-            coh += oh
-            coe += oe
-            chh += hh
-            che += he
-            clh += lh
-            cle += le
+        #bin the coverage graph
+        bins =  np.array([1,2,3,4] + range(5, maxx))
+        #bins = np.array([0,1,2,3,4,5,6,7,8] +  range(3, int(math.sqrt(maxx))+1))
+        #print bins
+        oh, oe = np.histogram(r_ok, bins = bins)
+        hh, he = np.histogram(r_high, bins = bins)
+        lh, le = np.histogram(r_low, bins = bins)
+        mids = 0.5 * (oe[:-1] + oe[1:])
 
-        print oh[0]
-
-
-        #create the coverage graph
-        fig = plt.figure()
+        #print normal plot
+        fig = plt.figure()                
         ax = fig.add_subplot(111)
-        ax.set_yscale('log')
-        ax.set_xscale('log')
         plt.title('Coverage distribution for sequence "%s"' % seqId,
                   fontdict={'size' : 10})
         ax.set_xlabel('coverage')
-        ax.set_ylabel('no nucleotides with coverage x')
-        ax.plot(he[:-1],hh, 'r-',
-                label="long insert")
-        ax.plot(oe[:-1], (oh), 'g-',
-                label="correct insert")
-        ax.plot((le[:-1]), (lh), 'b-',
-                label="short insert")
-        minX, maxX = ax.get_axes().get_xlim()
-        ax.hlines(oh[0],maxX*0.9, maxX * 1.1, 'black', linewidth= 3,
-                  label="NO 'ok' coverage")
+        ax.set_ylabel('no nucleotides with coverage')        
 
-        ax.legend(prop={'size' :'x-small'})
-        plt.savefig(os.path.join('report', seqId + '.2log.report.png'))
+        ax.plot((he[:-1]), (hh), c='#B73147',
+                 label="long insert")
+        ax.plot((oe[:-1]), (oh), c='#3BB058',
+                label="correct insert")
+        ax.plot((le[:-1]), (lh), c='#538ABF',
+                label="short insert")
         
-        #create the coverage graph
-        fig = plt.figure()
-        ax = fig.add_subplot(111)
+        minX, maxX = ax.get_axes().get_xlim()
+        if minX < 1: minX = 1
+        
+        ax.hlines(seqLen, minX, maxX, linestyles='solid',
+                  linewidth=1, colors="black",
+                  label='Sequence length (%d)' % seqLen)
+        ax.legend(prop={'size' :'x-small'})
+        
+        plt.savefig(os.path.join(seqId + '.coverage.distrib.png'))
+
         ax.set_yscale('log')
-        plt.title('Coverage distribution for sequence "%s"' % seqId,
-                  fontdict={'size' : 10})
-        ax.set_xlabel('coverage')
-        ax.set_ylabel('no nucleotides with coverage x')
-        ax.plot(he[:-1],hh, 'r-',
-                label="long insert")
-        ax.plot(oe[:-1], (oh), 'g-',
-                label="correct insert")
-        ax.plot((le[:-1]), (lh), 'b-',
-                label="short insert")
-        minX, maxX = ax.get_axes().get_xlim()
-        ax.hlines(oh[0],minX,maxX, 'black', linestyles='dashed',
-                  label="NO 'ok' coverage")
+        ax.hlines(seqLen, minX, maxX, linestyles='solid',
+                  linewidth=1, colors="black",
+                  label='Sequence length (%d)' % seqLen)
 
-        ax.legend(prop={'size' :'x-small'})
-        plt.savefig(os.path.join('report', seqId + '.log.report.png'))
+        plt.savefig(os.path.join(seqId + '.coverage.distrib.log.png'))
 
-        #create the coverage graph
-        fig = plt.figure()
+        ax.set_yscale('log')        
+        ax.set_xscale('log')
+        ax.hlines(seqLen, minX, maxX, linestyles='solid',
+                  linewidth=1, colors="black",
+                  label='Sequence length (%d)' % seqLen)
+        plt.savefig(os.path.join(seqId + '.coverage.distrib.log2.png'))
+
+        fig = plt.figure()                
         ax = fig.add_subplot(111)
         plt.title('Coverage distribution for sequence "%s"' % seqId,
                   fontdict={'size' : 10})
         ax.set_xlabel('coverage')
-        ax.set_ylabel('no nucleotides with coverage x')
-        ax.plot(he[:-1],hh, 'r-',
-                label="long insert")
-        ax.plot(oe[:-1], (oh), 'g-',
-                label="correct insert")
-        ax.plot((le[:-1]), (lh), 'b-',
-                label="short insert")
+        ax.set_ylabel('no nucleotides with coverage')        
+
+        ones = np.zeros_like(oh) + 1
+
+        ax.fill_between(
+            oe[:-1],
+            ones,
+            lh+oh+hh,
+            where=(lh + oh + hh)>0,
+            linewidth=0.5,
+            facecolor="#B73147",
+            edgecolor="#54121D"
+            )
+
+        ax.fill_between(
+            oe[:-1],
+            ones,
+            lh+oh,
+            where=(lh+oh)>0,
+            linewidth=0.5,
+            facecolor="#3BB058",
+            edgecolor="#1A612C"
+            )
+
+        ax.fill_between(
+            oe[:-1],
+            ones,
+            lh,
+            where=lh>0,
+            linewidth=0.5,
+            facecolor="#538ABF",
+            edgecolor="#214262"
+            
+            )
 
         minX, maxX = ax.get_axes().get_xlim()
-        ax.hlines(oh[0],minX,maxX, 'black', linestyles='dashed',
-                  label="NO 'ok' coverage")
-
+        if minX < 1: minX = 1
+        
+        ax.hlines(seqLen, minX, maxX, linestyles='solid',
+                  linewidth=1, colors="black",
+                  label='Sequence length (%d)' % seqLen)
         ax.legend(prop={'size' :'x-small'})
-        plt.savefig(os.path.join('report', seqId + '.report.png'))
+        plt.savefig(os.path.join(seqId + '.cumul.coverage.distrib.png'))
 
-        #and a thumbnail plot
-        #create the cumulative coverage graph
-        fig = plt.figure()
-        ax = plt.axes([0,0,1,1])
-        #ax = fig.axes([0,0,1,1], frame_on=False)
-        ax.xaxis.set_visible(False)
-        ax.yaxis.set_visible(False)
-        ax.fill_between(np.log10(he[:-1]),
-                        zeroes,
-                        np.log10(hh+oh+lh),
-                        where=np.log10(hh+oh+lh)>0,
-                        facecolor="blue",
-                        edgecolor=None)
-        ax.fill_between(np.log10(he[:-1]),
-                        zeroes,
-                        np.log10(hh+oh),
-                        where=np.log10(hh+oh)>0,
-                        facecolor="green",
-                        edgecolor=None)
-        ax.fill_between(np.log10(he[:-1]),
-                        zeroes,
-                        np.log10(hh),
-                        where=np.log10(hh)>0,
-                        facecolor="red",
-                        edgecolor=None)        
-        plt.savefig(os.path.join('report', seqId + '.thumb.report.png'),
-                    dpi=20)
+        ax.set_yscale('log')        
+        plt.savefig(os.path.join(seqId + '.cumul.coverage.distrib.log.png'))
+
+        ax.set_yscale('log')        
+        ax.set_xscale('log')
+        plt.savefig(os.path.join(seqId + '.cumul.coverage.distrib.log2.png'))
+

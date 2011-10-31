@@ -18,7 +18,29 @@ import matplotlib.mlab as mlab
 import logging
 import optparse
 import subprocess
+import cPickle
+import gzip
 
+def np_savez(file_base, **kwargs):
+    """
+    reimplement the faulty (or so it appears) np.savez function
+    """
+    for k in kwargs:
+        file_name = '%s.%s.gz' % (file_base, k)
+        with gzip.open(file_name, 'w') as F:
+            cPickle.dump(kwargs[k], F)
+
+def np_load(file_base, what):
+    """
+    reimplement the crappy np.savez function
+    """
+    file_name = '%s.%s.gz' % (file_base, what)
+    with gzip.open(file_name, 'r') as F:
+        data = cPickle.load(F)
+    return data
+
+    
+    
 ## Arguments: General options 
 parser = optparse.OptionParser()
 parser.add_option('-v', dest='verbose', action="count", 
@@ -42,8 +64,8 @@ parser.add_option('--skip_read' , dest='skipRead', action="store_true",
 parser.add_option('--skip_stats' , dest='skipStat', action="store_true",
                   help='Skip stat creating, read the stat data from disk')
 
-parser.add_option('--skip_binning' , dest='skipBinning', action="store_true",
-                  help='Skip generating the bin matrici')
+parser.add_option('--skip_plot' , dest='skipPlot', action="store_true",
+                  help='Skip generating a plot')
 
 parser.add_option('--skip_coverage' , dest='skipCoverage', action="store_true",
                   help='Skip generating of the coverage plots')
@@ -52,9 +74,6 @@ parser.set_defaults(maxInsert='20000')
 parser.add_option('--max', dest='maxInsert', 
                    help='max insert size to consider while creating the '+
                   'coverage plots')
-
-parser.add_option('--bin', dest='binSize', type='int', default=100,
-                   help='binSize for the bin plots')
 
 parser.set_defaults(minLen='10000')
 parser.add_option('--minLen', dest='minLen',
@@ -86,6 +105,7 @@ def run(cl):
                          stdout=subprocess.PIPE, 
                          stderr=subprocess.PIPE)
 
+#abc
 def runReturn(cl):
     return run(cl).communicate()[0].split('\n')
 
@@ -96,7 +116,7 @@ def getSequenceInfo(inputFile):
 
     seqInfo = {}
     l.debug("get sequence info from %s" % inputFile)
-
+    
 
     bamBase = os.path.basename(inputFile).replace('.bam', '')
     seqInfoFile = os.path.join('seqInfo', '%s.seqinfo' % bamBase)
@@ -110,6 +130,7 @@ def getSequenceInfo(inputFile):
         return seqInfo
 
     # nope, use samtools, be patient
+    l.debug("start reading sequence info")
     for line in runReturn('samtools view -H %s' % inputFile):
         line = line.strip()
         if not line: continue
@@ -198,8 +219,8 @@ def doStats(bamname, seqInfo, readPairs):
     mids = 0.5 * (edges[1:] + edges[:-1])
 
     #smooth the histogram (using a moving average)
-    shist = smoother(hist, 3)
-    smids = smoother(mids, 3)
+    shist = smoother(hist, 5)
+    smids = smoother(mids, 5)
     
     # find the top of the peak
     top = np.argmax(shist)
@@ -236,105 +257,85 @@ def doStats(bamname, seqInfo, readPairs):
         l.info("Estimating max ok insert size as %s" % topRight)
         stats['right'] = topRight
 
-    # plot a figure
-    l.info('plotting figure')
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-    plt.title('Insert size distribution for %s' % bamname,
-              fontdict={'size' : 10})
-    ax.plot(smids, shist, '#8888ff', linewidth=5,
-            label = "Smoothed histogram")
-    ax.plot(mids, hist, 'red', label='histogram')
-    minY, maxY = ax.get_axes().get_ylim()
-    if minY<= 0: minY = 1
-    ax.vlines(topInsert,minY,maxY, 'g',  linestyles='dotted',
-              label='Peak top (%d)' % int(topInsert))
-    ax.vlines(topLeft,minY,maxY, 'b', linestyles='dotted', 
-              label='estimated left border peak (%d)' % int(topLeft))
-    ax.vlines(topRight,minY,maxY, 'r', linestyles='dotted', 
-              label='estimated right border peak (%d)' % int(topRight))
+    if not options.skipPlot:
+        
+        # plot a figure - normal histogram
+        l.info('plotting normal figure')
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        plt.title('Insert size distribution for %s' % bamname,
+                  fontdict={'size' : 10})
+        ax.plot(mids, hist, 'red', label='histogram')
+        ax.plot(smids, shist, '#0000aa', linewidth=2,
+                label = "Smoothed histogram")        
+        minY, maxY = ax.get_axes().get_ylim()
+        if minY < 1:
+            minY =1
+            ax.get_axes().set_ylim([minY, maxY])
+        if minY<= 0: minY = 1
+        ax.vlines(topInsert,minY,maxY, 'g',  linestyles='dotted',
+                  label='Peak top (%d)' % int(topInsert))
+        ax.vlines(topLeft,minY,maxY, 'b', linestyles='dotted', 
+                  label='estimated left border peak (%d)' % int(topLeft))
+        ax.vlines(topRight,minY,maxY, 'r', linestyles='dotted', 
+                  label='estimated right border peak (%d)' % int(topRight))
 
-    if options.oklow > 0:
-        ax.vlines(options.oklow,minY,maxY, 'b', linestyles='dashed', 
-                  label='forced left border peak (%d)' % options.oklow)
-    if options.okhigh > 0:
-        ax.vlines(options.okhigh,minY,maxY, 'r', linestyles='dashed', 
-                  label='forced right border peak (%d)' % options.okhigh)
+        if options.oklow > 0:
+            ax.vlines(options.oklow,minY,maxY, 'b', linestyles='dashed', 
+                      label='forced left border peak (%d)' % options.oklow)
+        if options.okhigh > 0:
+            ax.vlines(options.okhigh,minY,maxY, 'r', linestyles='dashed', 
+                      label='forced right border peak (%d)' % options.okhigh)
 
-    ax.legend(prop={'size' :'x-small'})
-    
-    ax.set_xlim(0, min(maxHist, (2 * np.max(insertSizes))))
-    plt.savefig(os.path.join('stats', bamname + '.hist.png'))
+        ax.legend(prop={'size' :'x-small'})
 
-    # Do a log scaled version of the same figure
-    ax.set_yscale('log')
+        ax.set_xlim(0, min(maxHist, (2 * np.max(insertSizes))))
+        plt.savefig(os.path.join('stats', bamname + '.hist.png'))
 
-    plt.savefig(os.path.join('stats', bamname + '.log.hist.png'))
+        # Do a log scaled version of the same figure
+        ax.set_yscale('log')
+        plt.savefig(os.path.join('stats', bamname + '.log.hist.png'))
 
-    l.info('plotting log figure')
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-    plt.title('Insert size distribution for %s' % bamname,
-              fontdict={'size' : 10})
-    ax.plot(
-        smids,
-        np.log10(shist),
-        '#8888ff', linewidth=5,
-        label = "Smoothed histogram")
-    ax.plot(
-        mids,
-        np.log10(hist),
-        'red', label='histogram')
-    minY, maxY = ax.get_axes().get_ylim()
+        # Do a log scaled version of the same figure
+        ax.set_yscale('log')
+        ax.set_xscale('log')
+        first_non_zero = np.flatnonzero(shist)[0]-1
+        #if first_non_zero > 0: first_non_zero = 1
+        xMin, xMax = ax.get_axes().get_xlim()
+        ax.get_axes().set_xlim([ smids[first_non_zero], xMax])
+        #print shist[first_non_zero]
+        #print smids[first_non_zero]
+        
+        plt.savefig(os.path.join('stats', bamname + '.log2.hist.png'))
 
-    ax.vlines(topInsert,minY,maxY, 'g',  linestyles='dotted',
-              label='Peak top')
-    ax.vlines(topLeft,minY,maxY, 'b', linestyles='dotted', 
-              label='estimated left border peak')
-    ax.vlines(topRight,minY,maxY, 'r', linestyles='dotted', 
-              label='estimated right border peak')
+        # And a thumbnail figure as well
+        l.info('plotting thumbnail figure')
 
-    if options.oklow > 0:
-        ax.vlines(topLeft,minY,maxY, 'b', linestyles='dashed', 
-                  label='forced left border peak')
-    if options.okhigh > 0:
-        ax.vlines(topRight,minY,maxY, 'r', linestyles='dashed', 
-                  label='forced right border peak')
+        fig = plt.figure()
+        ax = plt.axes([0,0,1,1])
+        #ax = fig.axes([0,0,1,1], frame_on=False)
+        ax.xaxis.set_visible(False)
+        ax.yaxis.set_visible(False)
+        ax.fill_between(
+            mids, hist,
+            where=hist>0,
+            facecolor='red',
+            edgecolor=None)
+        minY, maxY = ax.get_axes().get_ylim()
+        if options.oklow > 0:
+            ax.vlines(topLeft,minY,maxY, 'b', linestyles='dashed')
+        else:
+            ax.vlines(topLeft,minY,maxY, 'b', linestyles='dotted')
 
-    ax.legend(prop={'size' :'x-small'})
-    
-    ax.set_xlim(0, min(maxHist, (2 * np.max(insertSizes))))
-    plt.savefig(os.path.join('stats', bamname + 'log..hist.png'))
+        if options.okhigh > 0:
+            ax.vlines(topRight,minY,maxY, 'r', linestyles='dashed')
+        else:
+            ax.vlines(topRight,minY,maxY, 'r', linestyles='dotted')
 
-
-    # And a thumbnail figure as well
-    l.info('plotting thumbnail figure')
-
-    fig = plt.figure()
-    ax = plt.axes([0,0,1,1])
-    #ax = fig.axes([0,0,1,1], frame_on=False)
-    ax.xaxis.set_visible(False)
-    ax.yaxis.set_visible(False)
-    ax.fill_between(
-        mids, hist,
-        where=hist>0,
-        facecolor='red',
-        edgecolor=None)
-    minY, maxY = ax.get_axes().get_ylim()
-    if options.oklow > 0:
-        ax.vlines(topLeft,minY,maxY, 'b', linestyles='dashed')
-    else:
-        ax.vlines(topLeft,minY,maxY, 'b', linestyles='dotted')
-
-    if options.okhigh > 0:
-        ax.vlines(topRight,minY,maxY, 'r', linestyles='dashed')
-    else:
-        ax.vlines(topRight,minY,maxY, 'r', linestyles='dotted')
-
-    ax.set_xlim(0, min(maxHist, (2 * np.max(insertSizes))))
-    plt.savefig(
-        os.path.join('stats', bamname + '.thumb.hist.png'),
-        dpi=20)
+        ax.set_xlim(0, min(maxHist, (2 * np.max(insertSizes))))
+        plt.savefig(
+            os.path.join('stats', bamname + '.thumb.hist.png'),
+            dpi=20)
 
     #write stats file for this library
     with open(os.path.join('stats', bamname + '.stats'), 'w') as F:
@@ -401,8 +402,10 @@ def parseBam(seqInfo, inputFileName):
     # process the sequences - turn everyting into np.arrays 
     # and write the data to numpy files - for quick reading in 
     # later stage -> for example, when fiddling with the statistics
+    no_with_zero_pairs = 0
     for seqId in seqInfo.keys():
 
+        
         if seqInfo[seqId]['length'] < minSeqLen: continue
 
         rp = readPairs[seqId]
@@ -412,14 +415,18 @@ def parseBam(seqInfo, inputFileName):
         rp['start2'] = np.array(rp['start2'])
         rp['stop2'] = np.array(rp['stop2'])
 
-        outname = os.path.join('readpairs', basename, seqId + '.readpairs')
-        np.savez(outname,
-                 start1 = rp['start1'],  
-                 stop1 = rp['stop1'],  
-                 start2 = rp['start2'],  
-                 stop2 = rp['stop2'])
-        l.info('wrote %d pairs for %s to disk' % (len(rp['start1']),seqId))
-    
+        if len(rp['start1']) > 0:
+            outname = os.path.join('readpairs', basename, seqId + '.readpairs')
+            np_savez(outname,
+                     start1 = rp['start1'],  
+                     stop1 = rp['stop1'],  
+                     start2 = rp['start2'],  
+                     stop2 = rp['stop2'])
+            if len(rp['start1']) > 0:
+                l.info('wrote %d pairs for %s to disk' % (len(rp['start1']),seqId))
+        else:
+            no_with_zero_pairs += 1
+    l.info('wroted data for %d sequences with zero pairs' % (no_with_zero_pairs))
     return readPairs
 
 def normalizeSortReadPairs(bamBase, seqInfo, readPairs, stats):
@@ -454,6 +461,7 @@ def normalizeSortReadPairs(bamBase, seqInfo, readPairs, stats):
     minSeqLen = int(float(options.minLen))
 
     covPlotCount = 0
+    no_seqs_with_zero_readpairs = 0
     for seqId in seqInfo.keys():
         if seqInfo[seqId]['length'] < minSeqLen: continue
 
@@ -461,9 +469,19 @@ def normalizeSortReadPairs(bamBase, seqInfo, readPairs, stats):
         if covPlotCount % 5000 == 0:
             l.debug("Calculated %d coverage plots (starting %s now)" % (covPlotCount, seqId))
 
-        l.debug("start calculating coverage plots for %s" % seqId)
 
+        if not readPairs.has_key(seqId):
+            #assume that this data has not been loaded
+            no_seqs_with_zero_readpairs += 1
+            continue
+        
         rp = readPairs[seqId]
+        
+        if len(rp['start1']) == 0:
+            no_seqs_with_zero_readpairs += 1
+            continue
+        
+        l.debug("start calculating coverage plots for %s (%d)" % (seqId, len(rp)))
 
         seqLen = seqInfo[seqId]['length']
 
@@ -476,13 +494,6 @@ def normalizeSortReadPairs(bamBase, seqInfo, readPairs, stats):
         r_low_ends = np.zeros(seqLen, dtype=np.int)
         r_high_ends = np.zeros(seqLen, dtype=np.int)
 
-        #approach_2
-        bins_low = [1000, 2000, 4000, 8000, 16000, 32000]
-        bins_high = [1000, 2000,4000,8000,16000,32000]
-
-        r_low_binned = np.zeros((seqLen, len(bins_low)), dtype=np.int)
-        r_high_binned = np.zeros((seqLen, len(bins_high)), dtype=np.int)
-        
         peakLow = stats['left']
         peakHigh = stats['right']
                            
@@ -491,21 +502,13 @@ def normalizeSortReadPairs(bamBase, seqInfo, readPairs, stats):
             b = b2
             dist = b2 - a1
             if dist < peakLow:
-                tooLow = peakLow - dist
-                for binNo in range(len(bins_low)):
-                    if tooLow < bins_low[binNo]: break
                 r_low[a1:b2] += 1
                 r_low_ends[a1:a2] += 1
                 r_low_ends[b1:b2] += 1
-                r_low_binned[a1:b2,binNo] += 1
             elif dist > peakHigh:
-                tooHigh = dist - peakHigh
-                for binNo in range(len(bins_high)):
-                    if tooHigh < bins_high[binNo]: break
                 r_high[a1:b2] += 1
                 r_high_ends[a1:a2] += 1
                 r_high_ends[b1:b2] += 1
-                r_high_binned[a1:b2,binNo] += 1
             else:
                 r_ok[a:b] += 1
                 r_ok_ends[a1:a2] += 1
@@ -523,78 +526,53 @@ def normalizeSortReadPairs(bamBase, seqInfo, readPairs, stats):
         #write the plots to disk      
         l.debug("Start wrinting coverage plot to disk")
 
-        np.savez(os.path.join('coverage', bamBase, seqId + '.coverage'),
+        np_savez(os.path.join('coverage', bamBase, seqId + '.coverage'),
                  r_low = r_low, 
                  r_ok = r_ok, 
                  r_high = r_high,
                  r_low_ends = r_low_ends, 
                  r_ok_ends = r_ok_ends, 
-                 r_high_ends = r_high_ends,
-                 r_high_binned = r_high_binned,
-                 r_low_binned = r_low_binned,
-                 bins_low = bins_low,
-                 bins_high = bins_high )
+                 r_high_ends = r_high_ends)
+
         l.debug("wrote coverage plot to disk")
-
-
-        
-def binThem(bamBase, seqInfo, readPairs, stats):
-    """
-    """
-    if not os.path.exists('bins'):
-        os.makedirs('bins')
-        
-    minSeqLen = int(float(options.minLen))
-    for seqId in seqInfo.keys():
-        
-        if seqInfo[seqId]['length'] < minSeqLen: continue
-
-        l.info("Processing %s (len %d)" % (seqId, seqInfo[seqId]['length']))
-        rp = readPairs[seqId]
-        seqLen = seqInfo[seqId]['length']
-        noBins = 1 + int(seqLen / options.binSize)
-        noYBins = 1+int(150000 / options.binSize)
-        l.info("Create %d bins of size %d" % (noBins, options.binSize))
-        l.debug("create bin array")
-        bins = np.zeros((noBins, noYBins), dtype=np.int)
-
-        def ff(a1, a2, b1, b2):
-            aBin = int(a1 / options.binSize)
-            bBin = aBin - int(b1 / options.binSize)
-            
-            bins[aBin][bBin] += 1
-            
-        FF=np.vectorize(ff)
-        FF(rp['start1'], rp['stop1'], rp['start2'], rp['stop2'])
-
-        np.savez(os.path.join('bins', bamBase + '.bins'),
-                 bins = bins)
+    l.debug("skipped %d sequences with zero readpairs" % no_seqs_with_zero_readpairs)
 
 def readBamDataFromDisk(seqInfo, bamBase):
     readPairs = {}
     minSeqLen = int(float(options.minLen))
+    no_skipped = 0
     for seqId in seqInfo.keys():
-        l.debug("reading bam data for seqId: %s" % seqId)
         if seqInfo[seqId]['length'] < minSeqLen: continue
         
         rp = {}
-        datafile = os.path.join('readpairs', bamBase, seqId + '.readpairs.npz')
-        data = np.load(datafile)
+        maxInsert  = int(float(options.maxInsert))
+        file_base = os.path.join('readpairs', bamBase, seqId + '.readpairs')
+        try:
+            start1 = np_load(file_base, 'start1')
+            stop1 = np_load(file_base, 'stop1')
+            start2 = np_load(file_base, 'start2')
+            stop2 = np_load(file_base, 'stop2')
+        except IOError:
+            #assume that this file has not been written - i.e.
+            #no readpairs to speak of - so, ignore
+            no_skipped += 1
+            continue
+
+        l.debug("reading bam data for seqId: %s" % seqId)
 
         #filter out those readpairs that are below a cutoff length
-        maxInsert  = int(float(options.maxInsert))
-        goodPairs = np.less_equal(data['stop2'] - data['start1'], maxInsert)
+        goodPairs = np.less_equal(stop2 - start1, maxInsert)
 
-        rp['start1'] = np.extract(goodPairs, data['start1'])
-        rp['stop1'] = np.extract(goodPairs, data['stop1'])
-        rp['start2'] = np.extract(goodPairs, data['start2'])
-        rp['stop2'] = np.extract(goodPairs, data['stop2'])
+        rp['start1'] = np.extract(goodPairs, start1)
+        rp['stop1'] = np.extract(goodPairs, stop1)
+        rp['start2'] = np.extract(goodPairs, start2)
+        rp['stop2'] = np.extract(goodPairs, stop2)
         
         noRecs = rp['start1'].shape[0]
         if noRecs > 0:
             l.info('%s records from %s' % (noRecs, seqId))
         readPairs[seqId] = rp
-
+    l.debug("skipped reading bam for %d sequences" % no_skipped)
     return readPairs
 
 def readStatsFromDisk(bamBase):
@@ -639,5 +617,3 @@ if __name__ == '__main__':
             #Sort the readpairs
             normalizeSortReadPairs(bamBase, seqInfo, readPairs, stats)
 
-        if not options.skipBinning:
-            binThem(bamBase, seqInfo, readPairs, stats)

@@ -59,33 +59,22 @@ def getHagfishOptparser():
                       help='Show debug information')
     return parser
 
-def addPlotParameters(parser):
+
+def addBasePlotParameters(parser):
     parser.set_defaults(ntPerBand=-1)
 
     parser.add_option('-n', dest='ntPerBand',
                       help='no nucleotides per band')
     
-    parser.add_option('-i', dest='inputFile',
-                      help='input file with the coverage data (npz, if not specified, '+
-                      'the input file name will be inferred from the sequence Id')
-
     parser.set_defaults(imageWidth=1000)
     parser.set_defaults(bandHeight=200)
     parser.add_option('-W', dest='imageWidth', type='int', help='imageWidth (in px)')
     parser.add_option('-H', dest='bandHeight', type='int', help='bandHeight (in px)')
 
-    parser.set_defaults(yfrac=0.98)
-    parser.add_option('-Y', dest='yfrac', type='float', help='percentage of the plotted'
-                      'fraction that must fall inside the Y boundaries of the graph - use'
-                      'this to scale the y axis')
-    parser.add_option('--ymax', dest='ymax',
-                      help='Alternatively, set a max value for the y axis')
-
     parser.add_option('-s', dest='start',
                       help='Start position (nt) of the plot')
     parser.add_option('-e', dest='stop',
                       help='Stop position (nt) of the plot')
-
 
     parser.add_option('-o', dest='outfile',
                       help='Output file name')
@@ -98,9 +87,24 @@ def addPlotParameters(parser):
     parser.add_option('--dpi', dest='dpi', type='int',
                       help='dpi of the image, pixel calculations are based on dpi 100, setting dpi to 200 will double the x/y pixel size of your image)')
 
+
+def addPlotParameters(parser):
+    addBasePlotParameters(parser)
+    parser.add_option('-i', dest='inputFile',
+                      help='input file with the coverage data (npz, if not specified, '+
+                      'the input file name will be inferred from the sequence Id')
+
+    parser.set_defaults(yfrac=0.98)
+    parser.add_option('-Y', dest='yfrac', type='float', help='percentage of the plotted'
+                      'fraction that must fall inside the Y boundaries of the graph - use'
+                      'this to scale the y axis')
+    parser.add_option('--ymax', dest='ymax',
+                      help='Alternatively, set a max value for the y axis')
     parser.add_option('-Q', dest='quick', action='store_true',
                       help='Create a "light" version of this graph (if implemented)')
 
+def addBinPlotParameters(parser):
+    addBasePlotParameters(parser)
 
 class hagfishData:
     
@@ -166,6 +170,41 @@ class hagfishData:
         self.x = np.arange(0, self.seqLen, dtype="int")
         #self.z = np.zeros_like(self.x)
         self.vectors.append('x')
+
+
+class hagfishBinData:
+    
+    def __init__(self, options, args, seqId = None, inputFile=None):
+
+        if seqId:
+            self.seqId = seqId
+        else:
+            self.seqId = args[0]
+
+        self.options = options
+
+        self.l = getLogger('data', options.verbose)
+        self.l.info("Loading sequence: %s" % self.seqId)
+
+        if not inputFile:
+            l.critical("need to provide an input file")
+            sys.exit()
+        self.inputFile = inputFile
+        
+        self.l.info('loading %s' % self.inputFile)
+
+        self.data = np.load(self.inputFile)
+        self.bins = self.data['bins']
+        self.binSize = self.data['binSize']
+
+        self.seqLen = len(self.data['bins']) * self.binSize
+
+
+        self.x = np.arange(0, self.seqLen, dtype="int")
+        self.l.info("discovered bin sequence of %d nt" % self.seqLen)
+
+        #self.z = np.zeros_like(self.x)
+        #self.vectors.append('x')
 
 class hagfishPlot:
 
