@@ -10,6 +10,7 @@ import matplotlib as mpl
 mpl.use('agg')
 import matplotlib.pyplot as plt
 import matplotlib.mlab as mlab
+import scipy.stats
 
 import logging
 import optparse
@@ -104,10 +105,13 @@ if __name__ == '__main__':
 
         rBins = np.array([0,1,10,20,30,40,50,100,int(10e9)])
 
-        score_bins = np.array([-1,-0.5,0.5,1])
-        score_hist, score_edges = np.histogram(score, bins=score_bins)
-        l.debug("score histogram %s " % score_hist)
-        l.debug("score histogram edges %s " % score_edges)
+        ke = scipy.stats.gaussian_kde(score)
+        no_score_bins = 100
+        score_bins = (np.array(range(0,no_score_bins+1)) / (no_score_bins / 2.)) - 1
+        score_density = ke.evaluate(score_bins)
+
+        #l.debug("score histogram edges %s " % score_edges)
+        #l.debug("score histogram %s " % score_hist)
         
         l.debug("Bins %s" % bins)
         ok_hist, oe = np.histogram(r_ok, bins = bins)
@@ -127,6 +131,18 @@ if __name__ == '__main__':
 
         rep_hist_edges = roee
 
+        #print score plot
+        fig = plt.figure()
+        plt.title("Score density distribution for %s" % seqId,
+                  fontdict={'size' : 10})
+        ax = fig.add_subplot(111)
+        ax.plot(score_bins, score_density)
+        ax.set_xlabel('score')
+        ax.set_ylabel('density')
+        #ax.set_yscale('log')        
+        #ax.set_xscale('log')
+        plt.savefig(os.path.join('report', seqId + '.score.density.png'))
+        
         #print normal plot
         fig = plt.figure()                
         ax = fig.add_subplot(111)
@@ -143,10 +159,26 @@ if __name__ == '__main__':
                 label="short insert")
 
 
-        minX, maxX = ax.get_axes().get_xlim()
-        if minX < 1: minX = 1
-        minY, maxY = ax.get_axes().get_ylim()
+        #print coverage distribution plot
+        fig = plt.figure()                
+        ax = fig.add_subplot(111)
+        plt.title('Coverage distribution for sequence "%s"' % seqId,
+                  fontdict={'size' : 10})
+        ax.set_xlabel('coverage')
+        ax.set_ylabel('no nucleotides with coverage')        
 
+        ax.plot((he[:-1]), (high_hist), ',-', c='#B73147',
+                 label="long insert")
+        ax.plot((hist_edges[:-1]), (ok_hist), ',-', c='#3BB058',
+                label="correct insert")
+        ax.plot((le[:-1]), (low_hist), ',-', c='#538ABF',
+                label="short insert")
+
+
+        minX, maxX = ax.get_axes().get_xlim()
+        #if minX < 1: minX = 0
+        #minX = 0
+        
         ax.hlines(seqLen, minX, maxX, linestyles='solid',
                   linewidth=1, colors="black",
                   label='Sequence length (%d)' % seqLen)
@@ -157,7 +189,47 @@ if __name__ == '__main__':
         ax.hlines(seqLen, minX, maxX, linestyles='solid',
                   linewidth=1, colors="black",
                   label='Sequence length (%d)' % seqLen)
-        plt.savefig(os.path.join('report', seqId + '.coverage.distrib.log2.png'))
+        plt.savefig(os.path.join('report', seqId + '.coverage.png'))
+
+
+        #print cumulative coverage distribution plot
+        fig = plt.figure()                
+        ax = fig.add_subplot(111)
+        plt.title('Coverage distribution for sequence "%s"' % seqId,
+                  fontdict={'size' : 10})
+        ax.set_xlabel('coverage')
+        ax.set_ylabel('no nucleotides with coverage')        
+
+
+        hh = (np.cumsum(high_hist) - high_hist[0]) / float(seqLen)
+        ho = (np.cumsum(ok_hist) - ok_hist[0]) / float(seqLen)
+        hl = (np.cumsum(low_hist) - low_hist[0]) / float(seqLen)
+        print hh
+        ax.plot((he[:-1]), hh, ',-', c='#B73147',
+                 label="long insert")
+        ax.plot((he[:-1]), ho, ',-', c='#3BB058',
+                label="correct insert")
+        ax.plot((he[:-1]), hl, ',-', c='#538ABF',
+                label="short insert")
+
+
+        minX, maxX = ax.get_axes().get_xlim()
+        #if minX < 1: minX = 0
+        #minX = 0
+        
+        #ax.hlines(seqLen, minX, maxX, linestyles='solid',
+        #          linewidth=1, colors="black",
+        #          label='Sequence length (%d)' % seqLen)
+        ax.legend(prop={'size' :'x-small'}, loc=2)
+        
+        #ax.set_yscale('log')        
+        ax.set_xscale('log')
+        #ax.hlines(seqLen, minX, maxX, linestyles='solid',
+        #          linewidth=1, colors="black",
+        #          label='Sequence length (%d)' % seqLen)
+        plt.savefig(os.path.join('report', seqId + '.cumul.coverage.png'))
+
+
 
         #generate text reports
         report_file = os.path.join('report', seqId + '.report')
