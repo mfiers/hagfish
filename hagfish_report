@@ -145,7 +145,8 @@ if __name__ == '__main__':
 
         minX, maxX = ax.get_axes().get_xlim()
         if minX < 1: minX = 1
-        
+        minY, maxY = ax.get_axes().get_ylim()
+
         ax.hlines(seqLen, minX, maxX, linestyles='solid',
                   linewidth=1, colors="black",
                   label='Sequence length (%d)' % seqLen)
@@ -157,71 +158,6 @@ if __name__ == '__main__':
                   linewidth=1, colors="black",
                   label='Sequence length (%d)' % seqLen)
         plt.savefig(os.path.join('report', seqId + '.coverage.distrib.log2.png'))
-
-        fig = plt.figure()                
-        ax = fig.add_subplot(111)
-        plt.title('Coverage distribution for sequence "%s"' % seqId,
-                  fontdict={'size' : 10})
-        ax.set_xlabel('coverage')
-        ax.set_ylabel('no nucleotides with coverage')        
-
-        ones = np.zeros_like(ok_hist) + 1
-
-        ax.fill_between(
-            hist_edges[:-1],
-            ones,
-            low_hist+ok_hist+high_hist,
-            where=(low_hist + ok_hist + high_hist)>0,
-            linewidth=0.5,
-            facecolor="#B73147",
-            edgecolor="#54121D"
-            )
-
-        ax.fill_between(
-            hist_edges[:-1],
-            ones,
-            low_hist+ok_hist,
-            where=(low_hist+ok_hist)>0,
-            linewidth=0.5,
-            facecolor="#3BB058",
-            edgecolor="#1A612C"
-            )
-
-        ax.fill_between(
-            hist_edges[:-1],
-            ones,
-            low_hist,
-            where=low_hist>0,
-            linewidth=0.5,
-            facecolor="#538ABF",
-            edgecolor="#214262",
-            label="long"
-            )
-
-        #fix for the legend
-        from matplotlib.patches import Rectangle
-        r1 = Rectangle((0, 0), 1, 1, facecolor="#B73147", edgecolor="#54121D") 
-        r2 = Rectangle((0, 0), 1, 1, facecolor="#3BB058", edgecolor="#1A612C") 
-        r3 = Rectangle((0, 0), 1, 1, facecolor="#538ABF", edgecolor="#214262") 
-
-        minX, maxX = ax.get_axes().get_xlim()
-        if minX < 1: minX = 1
-        
-        hl = ax.hlines(seqLen, minX, maxX, linestyles='solid',
-                  linewidth=1, colors="black",
-                  label='Sequence length (%d)' % seqLen)
-        
-        ax.legend([r1, r2, r3, hl],
-                  [ 'long insert',
-                    'correct insert',
-                    'short insert',
-                    'Sequence length (%d)' % seqLen,
-                   ],
-                  prop={'size' :'x-small'})
-
-        ax.set_yscale('log')        
-        ax.set_xscale('log')
-        plt.savefig(os.path.join('report', seqId + '.cumul.coverage.distrib.log2.png'))
 
         #generate text reports
         report_file = os.path.join('report', seqId + '.report')
