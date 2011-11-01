@@ -3,6 +3,7 @@ import os
 import sys
 import math
 import pickle
+import jinja2
 
 import numpy as np
 import matplotlib as mpl
@@ -12,6 +13,8 @@ import matplotlib.mlab as mlab
 
 import logging
 import optparse
+
+from hagfish_file_util import *
 
 ## Arguments: General options 
 parser = optparse.OptionParser()
@@ -59,48 +62,70 @@ if __name__ == '__main__':
         
     l.info("discovered %d sequences" % len(seqInfo))
 
-    if len(seqInfo) > 18:
+    if len(args) > 0:
+        seqs_to_parse = args
+    elif len(seqInfo) <= 18:
+        seqs_to_report = seqInfo.keys()
+    else:
         l.info("too many sequences - not making seq reports")
         sys.exit(0)
 
+
     seqCount =  0
-    for seqId in seqInfo.keys():
+    for seqId in seqs_to_parse:
 
         seqCount += 1
         seqLen = seqInfo[seqId]['length']
         l.info("processing %s (%d nt)" % (seqId, seqLen))
 
         #read the coverage plots
-        inputFile = os.path.join('combined', seqId + '.combined.coverage.npz')
-        data = np.load(inputFile)
-        r_ok = data['r_ok']
-        r_high = data['r_high']
-        r_low = data['r_low']
+        file_base = os.path.join('combined', seqId)
+        
+        r_ok = np_load(file_base, 'r_ok')
+        r_high = np_load(file_base, 'r_high')
+        r_low = np_load(file_base, 'r_low')
 
+        r_ok_ends = np_load(file_base, 'r_ok_ends')
+        r_high_ends = np_load(file_base, 'r_high_ends')
+        r_low_ends = np_load(file_base, 'r_low_ends')
 
+        median_ok = np.median(r_ok)
+        score = 0.5 * median_ok * (
+            1 - 2 * np.exp(-1 * (r_ok / median_ok))
+            + np.exp(-1 * ( ( r_ok + r_low + r_high) / median_ok) ) )
+
+        l.debug("Calculated score: min %s, max %s" % (np.min(score), np.max(score)))
+        
         if seqCount == 1:
             #determine what the bins are
             maxx = max(max(r_ok), max(r_high), max(r_low))
             maxx = 1500 * ( ( maxx / 1000 ) + 1 )             
             bins =  np.array([0,1,2,3,4] + range(5, maxx))
 
-        oh, oe = np.histogram(r_ok, bins = bins)
-        hh, he = np.histogram(r_high, bins = bins)
-        lh, le = np.histogram(r_low, bins = bins)
+        rBins = np.array([0,1,10,20,30,40,50,100,int(10e9)])
 
-        #we don't want to see the number of nt that have no
-        # high or low coverage..
-        hh[0] = 0
-        lh[0] = 0
+        score_bins = np.array([-1,-0.5,0.5,1])
+        score_hist, score_edges = np.histogram(score, bins=score_bins)
+        l.debug("score histogram %s " % score_hist)
+        l.debug("score histogram edges %s " % score_edges)
         
-        #bin the coverage graph
-        bins =  np.array([1,2,3,4] + range(5, maxx))
-        #bins = np.array([0,1,2,3,4,5,6,7,8] +  range(3, int(math.sqrt(maxx))+1))
-        #print bins
-        oh, oe = np.histogram(r_ok, bins = bins)
-        hh, he = np.histogram(r_high, bins = bins)
-        lh, le = np.histogram(r_low, bins = bins)
-        mids = 0.5 * (oe[:-1] + oe[1:])
+        l.debug("Bins %s" % bins)
+        ok_hist, oe = np.histogram(r_ok, bins = bins)
+        high_hist, he = np.histogram(r_high, bins = bins)
+        low_hist, le = np.histogram(r_low, bins = bins)
+
+        hist_edges = oe
+        
+        rep_ok_hist_ends, roee = np.histogram(r_ok_ends, bins = rBins)
+        rep_high_hist_ends, rhee = np.histogram(r_high_ends, bins = rBins)
+        rep_low_hist_ends, rlee = np.histogram(r_low_ends, bins = rBins)
+
+        rep_ok_hist, roe = np.histogram(r_ok, bins = rBins)
+        rep_high_hist, rhe = np.histogram(r_high, bins = rBins)
+        rep_low_hist, rle = np.histogram(r_low, bins = rBins)
+
+
+        rep_hist_edges = roee
 
         #print normal plot
         fig = plt.figure()                
@@ -110,13 +135,14 @@ if __name__ == '__main__':
         ax.set_xlabel('coverage')
         ax.set_ylabel('no nucleotides with coverage')        
 
-        ax.plot((he[:-1]), (hh), c='#B73147',
+        ax.plot((he[:-1]), (high_hist), c='#B73147',
                  label="long insert")
-        ax.plot((oe[:-1]), (oh), c='#3BB058',
+        ax.plot((hist_edges[:-1]), (ok_hist), c='#3BB058',
                 label="correct insert")
-        ax.plot((le[:-1]), (lh), c='#538ABF',
+        ax.plot((le[:-1]), (low_hist), c='#538ABF',
                 label="short insert")
-        
+
+
         minX, maxX = ax.get_axes().get_xlim()
         if minX < 1: minX = 1
         
@@ -125,21 +151,12 @@ if __name__ == '__main__':
                   label='Sequence length (%d)' % seqLen)
         ax.legend(prop={'size' :'x-small'})
         
-        plt.savefig(os.path.join(seqId + '.coverage.distrib.png'))
-
-        ax.set_yscale('log')
-        ax.hlines(seqLen, minX, maxX, linestyles='solid',
-                  linewidth=1, colors="black",
-                  label='Sequence length (%d)' % seqLen)
-
-        plt.savefig(os.path.join(seqId + '.coverage.distrib.log.png'))
-
         ax.set_yscale('log')        
         ax.set_xscale('log')
         ax.hlines(seqLen, minX, maxX, linestyles='solid',
                   linewidth=1, colors="black",
                   label='Sequence length (%d)' % seqLen)
-        plt.savefig(os.path.join(seqId + '.coverage.distrib.log2.png'))
+        plt.savefig(os.path.join('report', seqId + '.coverage.distrib.log2.png'))
 
         fig = plt.figure()                
         ax = fig.add_subplot(111)
@@ -148,52 +165,88 @@ if __name__ == '__main__':
         ax.set_xlabel('coverage')
         ax.set_ylabel('no nucleotides with coverage')        
 
-        ones = np.zeros_like(oh) + 1
+        ones = np.zeros_like(ok_hist) + 1
 
         ax.fill_between(
-            oe[:-1],
+            hist_edges[:-1],
             ones,
-            lh+oh+hh,
-            where=(lh + oh + hh)>0,
+            low_hist+ok_hist+high_hist,
+            where=(low_hist + ok_hist + high_hist)>0,
             linewidth=0.5,
             facecolor="#B73147",
             edgecolor="#54121D"
             )
 
         ax.fill_between(
-            oe[:-1],
+            hist_edges[:-1],
             ones,
-            lh+oh,
-            where=(lh+oh)>0,
+            low_hist+ok_hist,
+            where=(low_hist+ok_hist)>0,
             linewidth=0.5,
             facecolor="#3BB058",
             edgecolor="#1A612C"
             )
 
         ax.fill_between(
-            oe[:-1],
+            hist_edges[:-1],
             ones,
-            lh,
-            where=lh>0,
+            low_hist,
+            where=low_hist>0,
             linewidth=0.5,
             facecolor="#538ABF",
-            edgecolor="#214262"
-            
+            edgecolor="#214262",
+            label="long"
             )
+
+        #fix for the legend
+        from matplotlib.patches import Rectangle
+        r1 = Rectangle((0, 0), 1, 1, facecolor="#B73147", edgecolor="#54121D") 
+        r2 = Rectangle((0, 0), 1, 1, facecolor="#3BB058", edgecolor="#1A612C") 
+        r3 = Rectangle((0, 0), 1, 1, facecolor="#538ABF", edgecolor="#214262") 
 
         minX, maxX = ax.get_axes().get_xlim()
         if minX < 1: minX = 1
         
-        ax.hlines(seqLen, minX, maxX, linestyles='solid',
+        hl = ax.hlines(seqLen, minX, maxX, linestyles='solid',
                   linewidth=1, colors="black",
                   label='Sequence length (%d)' % seqLen)
-        ax.legend(prop={'size' :'x-small'})
-        plt.savefig(os.path.join(seqId + '.cumul.coverage.distrib.png'))
-
-        ax.set_yscale('log')        
-        plt.savefig(os.path.join(seqId + '.cumul.coverage.distrib.log.png'))
+        
+        ax.legend([r1, r2, r3, hl],
+                  [ 'long insert',
+                    'correct insert',
+                    'short insert',
+                    'Sequence length (%d)' % seqLen,
+                   ],
+                  prop={'size' :'x-small'})
 
         ax.set_yscale('log')        
         ax.set_xscale('log')
-        plt.savefig(os.path.join(seqId + '.cumul.coverage.distrib.log2.png'))
+        plt.savefig(os.path.join('report', seqId + '.cumul.coverage.distrib.log2.png'))
 
+        #generate text reports
+        report_file = os.path.join('report', seqId + '.report')
+        template_file = os.path.join(os.path.dirname(__file__),
+                                     'report_template.jinja2')
+
+        
+        with open(template_file) as F:
+            template = jinja2.Template(open(template_file).read())
+
+        rep_ok_proc = rep_ok_hist / float(seqLen) * 100
+        rep_ok_proc_ends = rep_ok_hist_ends / float(seqLen) * 100
+
+        rep_high_proc = rep_high_hist / float(seqLen) * 100
+        rep_high_proc_ends = rep_high_hist_ends / float(seqLen) * 100
+
+        rep_low_proc = rep_low_hist / float(seqLen) * 100
+        rep_low_proc_ends = rep_low_hist_ends / float(seqLen) * 100
+
+        print template.render(locals())
+
+        #template.render(__dict__)
+        
+        #template_file = open(__
+        #template = jinja2.Template(
+        #with open(report_file, 'w') as F:
+        #    data
+        
