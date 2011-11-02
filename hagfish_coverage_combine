@@ -9,6 +9,8 @@ import numpy as np
 import logging
 import optparse
 
+from hagfish_file_util import *
+
 ## Arguments: General options 
 parser = optparse.OptionParser()
 parser.add_option('-v', dest='verbose', action="count", 
@@ -55,6 +57,7 @@ if __name__ == '__main__':
     if not os.path.exists('combined'):
         os.mkdir('combined')
 
+    no_seqs_without_coverage = 0
     for seqId in seqInfo.keys():
 
         r_ok = None
@@ -69,66 +72,53 @@ if __name__ == '__main__':
         bins_high = []
 
         for inputDir in os.listdir('coverage'):
-            inputFile = os.path.join('coverage', inputDir, seqId + '.coverage.npz')
-            if not os.path.exists(inputFile):
-                l.debug("skipping %s (%d nt)" % (seqId, seqInfo[seqId]['length']))
-                break
+            file_base = os.path.join('coverage', inputDir, seqId + '.coverage')
             bamBase = inputDir
 
-            l.info("processing %s (%s)" % (bamBase,inputFile))
+            l.info("processing %s (%s)" % (bamBase, file_base))
 
-            #read the coverage plots
-            with open(inputFile) as F:
-                data = np.load(F)
+            try:
+                d_ok = np_load(file_base, 'r_ok')
+                d_high = np_load(file_base, 'r_high')
+                d_low = np_load(file_base, 'r_low')
 
-                if r_ok == None:
-                    r_ok = data['r_ok']
-                    r_high = data['r_high']
-                    r_low = data['r_low']
-
-                    r_ok_ends = data['r_ok_ends']
-                    r_high_ends = data['r_high_ends']
-                    r_low_ends = data['r_low_ends']
-
-                    r_low_binned = data['r_low_binned']
-                    r_high_binned = data['r_high_binned']
-
-                    bins_low = data['bins_low']
-                    bins_high = data['bins_high']
-                else:
-                    if (not list(bins_low) == list(data['bins_low'])) or \
-                        (not list(bins_high) == list(data['bins_high'])):
-                        l.critical("different bins!")
-                        sys.exit()
-
-                    r_ok += data['r_ok']
-                    r_high += data['r_high']
-                    r_low += data['r_low']
-
-                    r_ok_ends += data['r_ok_ends']
-                    r_high_ends += data['r_high_ends']
-                    r_low_ends += data['r_low_ends']
-
-                    r_low_binned += data['r_low_binned']
-                    r_high_binned += data['r_high_binned']
-
-            l.info("Max low: %d / Max ok: %d / Max high: %d" % (
-                    np.max(r_low), np.max(r_ok), np.max(r_high)))
-
-        if np.max(r_ok) == 0:
-            l.warning("max(r_ok) == 0 - no decently mapping read pairs found :(")
+                d_ok_ends = np_load(file_base, 'r_ok_ends')
+                d_high_ends = np_load(file_base, 'r_high_ends')
+                d_low_ends = np_load(file_base, 'r_low_ends')
+            except IOError:
+                #ignore if we can't load this file...
+                #possibly it was empty
+                continue
             
-        np.savez(os.path.join('combined', seqId + '.combined.coverage'),
-                 r_ok = r_ok,
-                 r_high = r_high,
-                 r_low = r_low,
-                 
-                 r_ok_ends = r_ok_ends,
-                 r_high_ends = r_high_ends,
-                 r_low_ends = r_low_ends,
-                 
-                 r_low_binned = r_low_binned ,
-                 r_high_binned =  r_high_binned,
-                 bins_low = bins_low,
-                 bins_high = bins_high)
- 
+            if not r_ok:
+                r_ok = d_ok
+                r_high = d_high
+                r_low = d_low
+                
+                r_ok_ends = d_ok_ends
+                r_high_ends = d_high_ends
+                r_low_ends = d_low_ends
+            else:
+                r_ok += d_ok
+                r_high += d_high
+                r_low += d_low
+
+                r_ok_ends += d_ok_ends
+                r_high_ends += d_high_ends
+                r_low_ends += d_low_ends
+
+
+        if (r_ok == None) or (np.max(r_ok) == 0):
+            no_seqs_without_coverage += 1
+        else:
+            l.debug("writing combined data for %s" % seqId)
+            np_savez(os.path.join('combined', seqId),
+                     r_ok = r_ok,
+                     r_high = r_high,
+                     r_low = r_low,
+                     
+                     r_ok_ends = r_ok_ends,
+                     r_high_ends = r_high_ends,
+                     r_low_ends = r_low_ends)
+               
+    l.info("ignored %d sequences (no coverage??)" % no_seqs_without_coverage)

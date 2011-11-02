@@ -12,6 +12,8 @@ import matplotlib.transforms
 import logging
 import optparse
 
+from hagfish_file_util import *
+
 ################################################################################
 ## GLOBALS
 ##
@@ -120,37 +122,35 @@ class hagfishData:
         self.l = getLogger('data', options.verbose)
         self.l.info("Loading sequence: %s" % self.seqId)
 
-        if inputFile:
-            self.inputFile = inputFile
-        elif options.inputFile:
-            self.inputFile = options.inputFile
-        else:
-            self.inputFile = os.path.join(
-                'combined', 
-                '%s.combined.coverage.npz' % self.seqId)
+        file_base = os.path.join(
+            'combined', 
+            '%s' % self.seqId)
 
-        self.l.info('loading %s' % self.inputFile)
-        self.vectors = ['ok', 'high', 'low', 'low_binned', 'high_binned',
+        self.l.info('loading from %s' % file_base)
+        self.vectors = ['ok', 'high', 'low', 
                         'ok_ends', 'high_ends', 'low_ends']
-        self.data = np.load(self.inputFile)
-
-        self.ok = self.data['r_ok']
-        self.high = self.data['r_high']
-        self.low = self.data['r_low']
-
-        self.ok_ends = self.data['r_ok_ends']
-        self.high_ends = self.data['r_high_ends']
-        self.low_ends = self.data['r_low_ends']
-
-        self.low_binned = self.data['r_low_binned']
-        self.high_binned = self.data['r_high_binned']
-
-        self.bins_high = self.data['bins_high']
-        self.bins_low = self.data['bins_low']
         
+        #self.data = np.load(self.inputFile)
+        self.data = {}
+
+        self.ok = np_load(file_base, 'r_ok')
+        self.high = np_load(file_base, 'r_high')
+        self.low = np_load(file_base, 'r_low')
+        
+        self.ok_ends = np_load(file_base, 'r_ok_ends')
+        self.high_ends = np_load(file_base, 'r_high_ends')
+        self.low_ends = np_load(file_base, 'r_low_ends')
+
+        self.data['ok'] = self.ok
+        self.data['low'] = self.low
+        self.data['high'] = self.high
+        self.data['ok_ends'] = self.ok_ends
+        self.data['low_ends'] = self.low_ends
+        self.data['high_ends'] = self.high_ends
+
         self.all = self.low + self.ok + self.high
 
-        self.seqLen = len(self.data['r_ok'])
+        self.seqLen = len(self.ok)
         self.l.debug('loaded coverage plots of len %d' % self.seqLen) 
 
         #some stats
@@ -171,40 +171,6 @@ class hagfishData:
         #self.z = np.zeros_like(self.x)
         self.vectors.append('x')
 
-
-class hagfishBinData:
-    
-    def __init__(self, options, args, seqId = None, inputFile=None):
-
-        if seqId:
-            self.seqId = seqId
-        else:
-            self.seqId = args[0]
-
-        self.options = options
-
-        self.l = getLogger('data', options.verbose)
-        self.l.info("Loading sequence: %s" % self.seqId)
-
-        if not inputFile:
-            l.critical("need to provide an input file")
-            sys.exit()
-        self.inputFile = inputFile
-        
-        self.l.info('loading %s' % self.inputFile)
-
-        self.data = np.load(self.inputFile)
-        self.bins = self.data['bins']
-        self.binSize = self.data['binSize']
-
-        self.seqLen = len(self.data['bins']) * self.binSize
-
-
-        self.x = np.arange(0, self.seqLen, dtype="int")
-        self.l.info("discovered bin sequence of %d nt" % self.seqLen)
-
-        #self.z = np.zeros_like(self.x)
-        #self.vectors.append('x')
 
 class hagfishPlot:
 
