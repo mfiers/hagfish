@@ -117,7 +117,15 @@ class plotter(hagfishPlotBand):
                 alpha=0.8,
                 color=COLOR3,
                 zorder=1)
-        
+            #low
+            self.ax.fill_between(
+                self.locx,
+                np.maximum(self.bandBottom, yc),
+                np.maximum(self.bandBottom, -self.low_ends + yc),
+                alpha=0.8,
+                color="black",
+                zorder=12)
+
         if PLOTOK:
             #ok
             self.ax.fill_between(
@@ -163,40 +171,40 @@ class plotter(hagfishPlotBand):
         #filter them, so that we only have outlines where the
         #plot remains inside the band                
         
-        if PLOTHIGH:
-            self.ax.plot(
-                self.locx,
-                self.okh + self.high + yc,
-                color = 'black', linewidth = 0.5,
-                zorder =5,
-                clip_path=self.patch
-                )
+        # if PLOTHIGH:
+        #     self.ax.plot(
+        #         self.locx,
+        #         self.okh + self.high + yc,
+        #         color = 'black', linewidth = 0.5,
+        #         zorder =5,
+        #         clip_path=self.patch
+        #         )
 
-        if PLOTOK:        
-            self.ax.plot(
-                self.locx,
-                self.okh + yc,
-                color = 'black', linewidth = 0.5,
-                zorder =5,
-                clip_path=self.patch
-                )
+        # if PLOTOK:        
+        #     self.ax.plot(
+        #         self.locx,
+        #         self.okh + yc,
+        #         color = 'black', linewidth = 0.5,
+        #         zorder =5,
+        #         clip_path=self.patch
+        #         )
 
-            self.ax.plot(
-                self.locx,
-                -self.okh + yc,
-                color = 'black',
-                linewidth=0.5,
-                clip_path=self.patch,
-                zorder=5)
+        #     self.ax.plot(
+        #         self.locx,
+        #         -self.okh + yc,
+        #         color = 'black',
+        #         linewidth=0.5,
+        #         clip_path=self.patch,
+        #         zorder=5)
 
-        if PLOTLOW:
-            self.ax.plot(
-                 self.locx,
-                 -(self.okh + self.low) + yc,
-                 color = 'black',
-                 linewidth=0.5,
-                 clip_path=self.patch,
-                 zorder=5)
+        # if PLOTLOW:
+        #     self.ax.plot(
+        #          self.locx,
+        #          -(self.okh + self.low) + yc,
+        #          color = 'black',
+        #          linewidth=0.5,
+        #          clip_path=self.patch,
+        #          zorder=5)
 
 
         if options.score:
@@ -206,7 +214,7 @@ class plotter(hagfishPlotBand):
                 )
             l.debug("Plotting score: min %s, max %s" % (np.min(score), np.max(score)))
 
-            self.ax.plot(self.locx, score + yc, color='black', linewidth=3)
+            self.ax.plot(self.locx, score + yc, color='#FF6F00', linewidth=2)
 
         
     def setYticks2(self):

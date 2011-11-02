@@ -118,6 +118,10 @@ if __name__ == '__main__':
         high_hist, he = np.histogram(r_high, bins = bins)
         low_hist, le = np.histogram(r_low, bins = bins)
 
+        ok_hist_ends, _oee = np.histogram(r_ok_ends, bins = bins)
+        high_hist_ends, _hee = np.histogram(r_high_ends, bins = bins)
+        low_hist_ends, _lee = np.histogram(r_low_ends, bins = bins)
+
         hist_edges = oe
         
         rep_ok_hist_ends, roee = np.histogram(r_ok_ends, bins = rBins)
@@ -195,22 +199,53 @@ if __name__ == '__main__':
         #print cumulative coverage distribution plot
         fig = plt.figure()                
         ax = fig.add_subplot(111)
-        plt.title('Coverage distribution for sequence "%s"' % seqId,
+        plt.title('Inverse cumulative coverage for "%s"' % seqId,
                   fontdict={'size' : 10})
         ax.set_xlabel('coverage')
-        ax.set_ylabel('no nucleotides with coverage')        
+        ax.set_ylabel('genome fraction')        
+
+        
+        cp_high_hist = np.cumsum(high_hist[1:][::-1])[::-1] / float(seqLen)
+        cp_high_hist_ends = np.cumsum(high_hist_ends[1:][::-1])[::-1] / float(seqLen)
+
+        cp_ok_hist = np.cumsum(ok_hist[1:][::-1])[::-1] / float(seqLen)
+        cp_ok_hist_ends = np.cumsum(ok_hist_ends[1:][::-1])[::-1] / float(seqLen)
+
+        cp_low_hist = np.cumsum(low_hist[1:][::-1])[::-1] / float(seqLen)
+        cp_low_hist_ends = np.cumsum(low_hist_ends[1:][::-1])[::-1] / float(seqLen)
 
 
-        hh = (np.cumsum(high_hist) - high_hist[0]) / float(seqLen)
-        ho = (np.cumsum(ok_hist) - ok_hist[0]) / float(seqLen)
-        hl = (np.cumsum(low_hist) - low_hist[0]) / float(seqLen)
-        print hh
-        ax.plot((he[:-1]), hh, ',-', c='#B73147',
-                 label="long insert")
-        ax.plot((he[:-1]), ho, ',-', c='#3BB058',
-                label="correct insert")
-        ax.plot((he[:-1]), hl, ',-', c='#538ABF',
-                label="short insert")
+        print cp_low_hist
+        print cp_low_hist_ends
+
+        print low_hist
+        print low_hist_ends
+
+        ax.fill_between(he[1:-1],
+                        cp_high_hist_ends, cp_high_hist,
+                        color='#B73147', alpha=0.3)
+        ax.fill_between(he[1:-1],
+                        cp_ok_hist_ends, cp_ok_hist,
+                        color='#3BB058', alpha=0.3)
+        ax.fill_between(he[1:-1],
+                        cp_low_hist_ends, cp_low_hist,
+                        color='#538ABF', alpha=0.3)
+        #ax.fill_between(he[:-1], hoe, ho, color='#3BB058', alpha=0.4)
+        #ax.fill_between(he[:-1], hle, hl, color='#538ABF', alpha=0.4)
+
+        #ax.plot((he[1:-1]), cp_high_hist, '-', c='#B73147',
+        #        label="long insert")
+        #ax.plot((he[:-1]), ho, '-', c='#3BB058',
+        #        label="correct insert")
+        #ax.plot((he[:-1]), hl, '-', c='#538ABF',
+        #        label="short insert")
+
+        ax.plot((he[1:-1]), cp_high_hist_ends, '-', c='#B73147',
+                  label="long insert")
+        ax.plot((he[1:-1]), cp_ok_hist_ends, '-', c='#3BB058',
+                 label="correct insert")
+        ax.plot((he[1:-1]), cp_low_hist_ends, '-', c='#538ABF',
+                 label="short insert")
 
 
         minX, maxX = ax.get_axes().get_xlim()
@@ -220,7 +255,7 @@ if __name__ == '__main__':
         #ax.hlines(seqLen, minX, maxX, linestyles='solid',
         #          linewidth=1, colors="black",
         #          label='Sequence length (%d)' % seqLen)
-        ax.legend(prop={'size' :'x-small'}, loc=2)
+        ax.legend(prop={'size' :'x-small'}, loc=1)
         
         #ax.set_yscale('log')        
         ax.set_xscale('log')
