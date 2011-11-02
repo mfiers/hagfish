@@ -98,7 +98,7 @@ def flat_fish(seqId, seqLen):
     with open(os.path.join('flat', '%s.flat.gff' % seqId), 'w') as F:
         F.write("##gff-version 3\n")
         F.write("##source-version Hagfish 0.1\n")
-        F.write("sequence-region %s 1 %d\n" % (seqId, seqLen))
+        F.write("##sequence-region %s 1 %d\n" % (seqId, seqLen))
                 
         def gff_write(cat, sta, sto):
             if cat == 0:
