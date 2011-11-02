@@ -1,0 +1,24 @@
+{% macro statblock(num, pro, xnum, xpro) %}
+    Coverage c | No - incl. | % incl.   | No - excl. | % excl.
+       c =   0 | {{ "%10d"|format(num[0]) }} | {{ "%8.2f"|format(pro[0]) }}% | {{ "%10d"|format(xnum[0]) }} | {{ "%8.2f"|format(xpro[0]) }}%
+  1 <= c <  10 | {{ "%10d"|format(num[1]) }} | {{ "%8.2f"|format(pro[1]) }}% | {{ "%10d"|format(xnum[1]) }} | {{ "%8.2f"|format(xpro[1]) }}%
+ 10 <= c <  20 | {{ "%10d"|format(num[2]) }} | {{ "%8.2f"|format(pro[2]) }}% | {{ "%10d"|format(xnum[2]) }} | {{ "%8.2f"|format(xpro[2]) }}%
+ 20 <= c <  30 | {{ "%10d"|format(num[3]) }} | {{ "%8.2f"|format(pro[3]) }}% | {{ "%10d"|format(xnum[3]) }} | {{ "%8.2f"|format(xpro[3]) }}%
+ 30 <= c <  40 | {{ "%10d"|format(num[4]) }} | {{ "%8.2f"|format(pro[4]) }}% | {{ "%10d"|format(xnum[4]) }} | {{ "%8.2f"|format(xpro[4]) }}%
+ 40 <= c <  50 | {{ "%10d"|format(num[5]) }} | {{ "%8.2f"|format(pro[5]) }}% | {{ "%10d"|format(xnum[5]) }} | {{ "%8.2f"|format(xpro[5]) }}%
+ 50 <= c < 100 | {{ "%10d"|format(num[6]) }} | {{ "%8.2f"|format(pro[6]) }}% | {{ "%10d"|format(xnum[6]) }} | {{ "%8.2f"|format(xpro[6]) }}%
+100 <= c       | {{ "%10d"|format(num[7]) }} | {{ "%8.2f"|format(pro[7]) }}% | {{ "%10d"|format(xnum[7]) }} | {{ "%8.2f"|format(xpro[7]) }}%
+{%- endmacro %}
+
+# Hagfish report for {{ seqId }}
+
+Sequence length: {{ seqLen }}
+
+## Correctly sized fragments
+{{ statblock(rep_ok_hist, rep_ok_proc, rep_ok_hist_ends, rep_ok_proc_ends) }}
+
+## Long distance fragments
+{{ statblock(rep_high_hist, rep_high_proc, rep_high_hist_ends, rep_high_proc_ends) }}
+
+## Short distance fragments
+{{ statblock(rep_low_hist, rep_low_proc, rep_low_hist_ends, rep_low_proc_ends) }}
