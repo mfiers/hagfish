@@ -101,6 +101,8 @@ def flat_fish(seqId, seqLen):
         F.write("sequence-region %s 1 %d\n" % (seqId, seqLen))
                 
         def gff_write(cat, sta, sto):
+            if cat == 0:
+                continue
             #SEQ1  EMBL  atg  103  105  .  +  0
             F.write("\t".join(map(str, [
                 seqId, 'Hagfish', 'cat%d' % cat,
