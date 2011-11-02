@@ -256,14 +256,18 @@ class hagfishPlot:
         self.tminY, self.tmaxY = 0, 0
 
         if ymax:
+            self.l.info("setting ymax (func def) to %s" % ymax)
             self.maxY = ymax
             self.minY = -self.maxY
         elif options.ymax:
+            self.l.info("setting ymax (--ymax) to %s" % options.ymax)
             self.maxY = int(options.ymax)
             self.minY = -self.maxY
         else:
             self.maxY = int(quant(self.data.okh, options.yfrac))
             self.minY = -self.maxY
+            self.l.info("setting ymax (calc) to %s" % self.maxY)
+
 
         self.YCorrPerBand = 2 * self.maxY
 
