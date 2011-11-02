@@ -90,7 +90,7 @@ if __name__ == '__main__':
                 #possibly it was empty
                 continue
             
-            if not r_ok:
+            if r_ok == None:
                 r_ok = d_ok
                 r_high = d_high
                 r_low = d_low
