@@ -102,7 +102,7 @@ def flat_fish(seqId, seqLen):
                 
         def gff_write(cat, sta, sto):
             if cat == 0:
-                continue
+                return
             #SEQ1  EMBL  atg  103  105  .  +  0
             F.write("\t".join(map(str, [
                 seqId, 'Hagfish', 'cat%d' % cat,
