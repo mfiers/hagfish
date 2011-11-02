@@ -1,0 +1,363 @@
+#!/usr/bin/env python
+import os
+import sys
+import math
+import pickle
+import jinja2
+
+import numpy as np
+import matplotlib as mpl
+mpl.use('agg')
+import matplotlib.pyplot as plt
+import matplotlib.mlab as mlab
+import scipy.stats
+
+import logging
+import optparse
+
+from hagfish_file_util import *
+
+## Arguments: General options 
+parser = optparse.OptionParser()
+parser.add_option('-v', dest='verbose', action="count", 
+                  help='Show debug information')
+
+options, args = parser.parse_args()
+
+l = logging.getLogger('hagfish')
+handler = logging.StreamHandler()
+logmark = chr(27) + '[0;37;44mHAGFISH' + \
+          chr(27) + '[0m ' 
+
+formatter = logging.Formatter(
+    logmark + '%(levelname)-6s %(message)s')
+
+handler.setFormatter(formatter)
+l.addHandler(handler)
+
+if options.verbose >= 2:
+    l.setLevel(logging.DEBUG)
+elif options.verbose == 1:
+    l.setLevel(logging.INFO)
+else:
+    l.setLevel(logging.WARNING)
+
+def flat_fish(seqId, seqLen):
+
+    l.info("processing %s (%d nt)" % (seqId, seqLen))
+
+    #read the coverage plots
+    file_base = os.path.join('combined', seqId)
+        
+    r_ok = np_load(file_base, 'r_ok')
+    r_high = np_load(file_base, 'r_high')
+    r_low = np_load(file_base, 'r_low')
+
+    #r_ok_ends = np_load(file_base, 'r_ok_ends')
+    #r_high_ends = np_load(file_base, 'r_high_ends')
+    #r_low_ends = np_load(file_base, 'r_low_ends')
+
+    median_ok = np.median(r_ok)
+    score = 1 - 2 * np.exp(-1 * (r_ok / median_ok)) \
+            + np.exp(-1 * ( ( r_ok + r_low + r_high) / median_ok) ) 
+
+    #smoothen the score a little
+    w=np.ones(10, 'd')
+    smoscore = np.convolve(w/w.sum(), score, mode='valid')
+    
+    l.debug("Calculated score: min %s, max %s" % (np.min(score), np.max(score)))
+
+    #categories:
+    # 0 - c < COVERAGE_CUTOFF
+    # 1 - s < -0.33
+    # 2 - -0.33 < s < 0.33
+    # 3 - 0.33 < s
+
+    COVERAGE_CUTOFF = 5
+    SCORE_CUTOFF = 0.33
+    
+    r_all = r_ok + r_high + r_low
+
+    def catify(comcov, score):
+        if score < -1 * SCORE_CUTOFF:
+            return 1
+        elif score > SCORE_CUTOFF:
+            return 3
+        elif comcov < COVERAGE_CUTOFF:
+            return 0
+        else:
+            return 2
+
+    vfunc = np.vectorize(catify)
+    cats = vfunc(r_all, score)
+
+    i = 0
+    lastcat = cats[0]
+    lastpos = 0
+    
+    with open(os.path.join('flat', '%s.flat.gff' % seqId), 'w') as F:
+        F.write("##gff-version 3\n")
+        F.write("##source-version Hagfish 0.1\n")
+        F.write("sequence-region %s 1 %d\n" % (seqId, seqLen))
+                
+        def gff_write(cat, sta, sto):
+            if cat == 0:
+                continue
+            #SEQ1  EMBL  atg  103  105  .  +  0
+            F.write("\t".join(map(str, [
+                seqId, 'Hagfish', 'cat%d' % cat,
+                sta, sto, '.', '.', '.',
+                'ID="Hagfish_cat_%s_%s_%d"' % (seqId, cat, sta)
+                ])))
+            F.write("\n")
+            
+        while True:
+            if i + 1 == len(cats):
+                gff_write(lastcat, lastpos+1, i+1)
+                break
+            elif cats[i] != lastcat:
+                #category switch
+                gff_write(lastcat, lastpos+1, i)
+                lastcat = cats[i]
+                lastpos = i
+            i += 1
+
+        
+
+    
+
+if __name__ == '__main__':
+
+    if not os.path.exists('flat'):
+        os.makedirs('flat')
+
+    #read an arbitrary seqId file
+    for f in os.listdir('seqInfo'):
+        if '.seqinfo' in f:
+            seqInfoFile = os.path.join('seqInfo', f)
+            break
+        else:
+            l.critical("cannot find a seqInfo file")
+            sys.exit(-1)
+
+    l.info("reading %s for seqinfo" % seqInfoFile)
+    with open(seqInfoFile) as F:
+        seqInfo = pickle.load(F)
+        
+    l.info("discovered %d sequences" % len(seqInfo))
+
+    if len(args) > 0:
+        seqs_to_parse = args
+    elif len(seqInfo) <= 18:
+        seqs_to_report = seqInfo.keys()
+    else:
+        l.info("too many sequences - not making seq reports")
+        sys.exit(0)
+
+
+    seqCount =  0
+    for seqId in seqs_to_parse:
+
+        flat_fish(seqId, seqLen=seqInfo[seqId]['length'])
+
+        continue
+
+
+
+        
+        if seqCount == 1:
+            #determine what the bins are
+            maxx = max(max(r_ok), max(r_high), max(r_low))
+            maxx = 1500 * ( ( maxx / 1000 ) + 1 )             
+            bins =  np.array([0,1,2,3,4] + range(5, maxx))
+
+        rBins = np.array([0,1,10,20,30,40,50,100,int(10e9)])
+
+        ke = scipy.stats.gaussian_kde(score)
+        no_score_bins = 100
+        score_bins = (np.array(range(0,no_score_bins+1)) / (no_score_bins / 2.)) - 1
+        score_density = ke.evaluate(score_bins)
+
+        #l.debug("score histogram edges %s " % score_edges)
+        #l.debug("score histogram %s " % score_hist)
+        
+        l.debug("Bins %s" % bins)
+        ok_hist, oe = np.histogram(r_ok, bins = bins)
+        high_hist, he = np.histogram(r_high, bins = bins)
+        low_hist, le = np.histogram(r_low, bins = bins)
+
+        ok_hist_ends, _oee = np.histogram(r_ok_ends, bins = bins)
+        high_hist_ends, _hee = np.histogram(r_high_ends, bins = bins)
+        low_hist_ends, _lee = np.histogram(r_low_ends, bins = bins)
+
+        hist_edges = oe
+        
+        rep_ok_hist_ends, roee = np.histogram(r_ok_ends, bins = rBins)
+        rep_high_hist_ends, rhee = np.histogram(r_high_ends, bins = rBins)
+        rep_low_hist_ends, rlee = np.histogram(r_low_ends, bins = rBins)
+
+        rep_ok_hist, roe = np.histogram(r_ok, bins = rBins)
+        rep_high_hist, rhe = np.histogram(r_high, bins = rBins)
+        rep_low_hist, rle = np.histogram(r_low, bins = rBins)
+
+
+        rep_hist_edges = roee
+
+        #print score plot
+        fig = plt.figure()
+        plt.title("Score density distribution for %s" % seqId,
+                  fontdict={'size' : 10})
+        ax = fig.add_subplot(111)
+        ax.plot(score_bins, score_density)
+        ax.set_xlabel('score')
+        ax.set_ylabel('density')
+        #ax.set_yscale('log')        
+        #ax.set_xscale('log')
+        plt.savefig(os.path.join('report', seqId + '.score.density.png'))
+        
+        #print normal plot
+        fig = plt.figure()                
+        ax = fig.add_subplot(111)
+        plt.title('Coverage distribution for sequence "%s"' % seqId,
+                  fontdict={'size' : 10})
+        ax.set_xlabel('coverage')
+        ax.set_ylabel('no nucleotides with coverage')        
+
+        ax.plot((he[:-1]), (high_hist), c='#B73147',
+                 label="long insert")
+        ax.plot((hist_edges[:-1]), (ok_hist), c='#3BB058',
+                label="correct insert")
+        ax.plot((le[:-1]), (low_hist), c='#538ABF',
+                label="short insert")
+
+
+        #print coverage distribution plot
+        fig = plt.figure()                
+        ax = fig.add_subplot(111)
+        plt.title('Coverage distribution for sequence "%s"' % seqId,
+                  fontdict={'size' : 10})
+        ax.set_xlabel('coverage')
+        ax.set_ylabel('no nucleotides with coverage')        
+
+        ax.plot((he[:-1]), (high_hist), ',-', c='#B73147',
+                 label="long insert")
+        ax.plot((hist_edges[:-1]), (ok_hist), ',-', c='#3BB058',
+                label="correct insert")
+        ax.plot((le[:-1]), (low_hist), ',-', c='#538ABF',
+                label="short insert")
+
+
+        minX, maxX = ax.get_axes().get_xlim()
+        #if minX < 1: minX = 0
+        #minX = 0
+        
+        ax.hlines(seqLen, minX, maxX, linestyles='solid',
+                  linewidth=1, colors="black",
+                  label='Sequence length (%d)' % seqLen)
+        ax.legend(prop={'size' :'x-small'})
+        
+        ax.set_yscale('log')        
+        ax.set_xscale('log')
+        ax.hlines(seqLen, minX, maxX, linestyles='solid',
+                  linewidth=1, colors="black",
+                  label='Sequence length (%d)' % seqLen)
+        plt.savefig(os.path.join('report', seqId + '.coverage.png'))
+
+
+        #print cumulative coverage distribution plot
+        fig = plt.figure()                
+        ax = fig.add_subplot(111)
+        plt.title('Inverse cumulative coverage for "%s"' % seqId,
+                  fontdict={'size' : 10})
+        ax.set_xlabel('coverage')
+        ax.set_ylabel('genome fraction')        
+
+        
+        cp_high_hist = np.cumsum(high_hist[1:][::-1])[::-1] / float(seqLen)
+        cp_high_hist_ends = np.cumsum(high_hist_ends[1:][::-1])[::-1] / float(seqLen)
+
+        cp_ok_hist = np.cumsum(ok_hist[1:][::-1])[::-1] / float(seqLen)
+        cp_ok_hist_ends = np.cumsum(ok_hist_ends[1:][::-1])[::-1] / float(seqLen)
+
+        cp_low_hist = np.cumsum(low_hist[1:][::-1])[::-1] / float(seqLen)
+        cp_low_hist_ends = np.cumsum(low_hist_ends[1:][::-1])[::-1] / float(seqLen)
+
+
+        print cp_low_hist
+        print cp_low_hist_ends
+
+        print low_hist
+        print low_hist_ends
+
+        ax.fill_between(he[1:-1],
+                        cp_high_hist_ends, cp_high_hist,
+                        color='#B73147', alpha=0.3)
+        ax.fill_between(he[1:-1],
+                        cp_ok_hist_ends, cp_ok_hist,
+                        color='#3BB058', alpha=0.3)
+        ax.fill_between(he[1:-1],
+                        cp_low_hist_ends, cp_low_hist,
+                        color='#538ABF', alpha=0.3)
+        #ax.fill_between(he[:-1], hoe, ho, color='#3BB058', alpha=0.4)
+        #ax.fill_between(he[:-1], hle, hl, color='#538ABF', alpha=0.4)
+
+        #ax.plot((he[1:-1]), cp_high_hist, '-', c='#B73147',
+        #        label="long insert")
+        #ax.plot((he[:-1]), ho, '-', c='#3BB058',
+        #        label="correct insert")
+        #ax.plot((he[:-1]), hl, '-', c='#538ABF',
+        #        label="short insert")
+
+        ax.plot((he[1:-1]), cp_high_hist_ends, '-', c='#B73147',
+                  label="long insert")
+        ax.plot((he[1:-1]), cp_ok_hist_ends, '-', c='#3BB058',
+                 label="correct insert")
+        ax.plot((he[1:-1]), cp_low_hist_ends, '-', c='#538ABF',
+                 label="short insert")
+
+
+        minX, maxX = ax.get_axes().get_xlim()
+        #if minX < 1: minX = 0
+        #minX = 0
+        
+        #ax.hlines(seqLen, minX, maxX, linestyles='solid',
+        #          linewidth=1, colors="black",
+        #          label='Sequence length (%d)' % seqLen)
+        ax.legend(prop={'size' :'x-small'}, loc=1)
+        
+        #ax.set_yscale('log')        
+        ax.set_xscale('log')
+        #ax.hlines(seqLen, minX, maxX, linestyles='solid',
+        #          linewidth=1, colors="black",
+        #          label='Sequence length (%d)' % seqLen)
+        plt.savefig(os.path.join('report', seqId + '.cumul.coverage.png'))
+
+
+
+        #generate text reports
+        report_file = os.path.join('report', seqId + '.report')
+        template_file = os.path.join(os.path.dirname(__file__),
+                                     'report_template.jinja2')
+
+        
+        with open(template_file) as F:
+            template = jinja2.Template(open(template_file).read())
+
+        rep_ok_proc = rep_ok_hist / float(seqLen) * 100
+        rep_ok_proc_ends = rep_ok_hist_ends / float(seqLen) * 100
+
+        rep_high_proc = rep_high_hist / float(seqLen) * 100
+        rep_high_proc_ends = rep_high_hist_ends / float(seqLen) * 100
+
+        rep_low_proc = rep_low_hist / float(seqLen) * 100
+        rep_low_proc_ends = rep_low_hist_ends / float(seqLen) * 100
+
+        print template.render(locals())
+
+        #template.render(__dict__)
+        
+        #template_file = open(__
+        #template = jinja2.Template(
+        #with open(report_file, 'w') as F:
+        #    data
+        
