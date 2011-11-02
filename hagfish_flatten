@@ -22,6 +22,13 @@ parser = optparse.OptionParser()
 parser.add_option('-v', dest='verbose', action="count", 
                   help='Show debug information')
 
+parser.add_option('-C', dest='coverage_cutoff', type="int",
+                  help='coverage cutoff - below this coverage consider the' +
+                  'region as having no information', default=10)
+parser.add_option('-S', dest='score_cutoff', type="float",
+                  help='score cutoff - (score < -S : bad; score > +S : good; ' +
+                  'otherwise: uncertain', default=0.5)
+
 options, args = parser.parse_args()
 
 l = logging.getLogger('hagfish')
@@ -68,13 +75,19 @@ def flat_fish(seqId, seqLen):
     l.debug("Calculated score: min %s, max %s" % (np.min(score), np.max(score)))
 
     #categories:
-    # 0 - c < COVERAGE_CUTOFF
-    # 1 - s < -0.33
-    # 2 - -0.33 < s < 0.33
-    # 3 - 0.33 < s
+    # no info - c < COVERAGE_CUTOFF
+    # bad - s < -0.33
+    # uncertain - -0.33 < s < 0.33
+    # good - 0.33 < s
 
-    COVERAGE_CUTOFF = 5
-    SCORE_CUTOFF = 0.33
+    CATEGORIES = {
+        0 : 'noinfo',
+        1 : 'bad',
+        2 : 'uncertain',
+        3 : 'good' }
+    
+    COVERAGE_CUTOFF = options.coverage_cutoff
+    SCORE_CUTOFF = options.score_cutoff
     
     r_all = r_ok + r_high + r_low
 
@@ -87,7 +100,7 @@ def flat_fish(seqId, seqLen):
             return 0
         else:
             return 2
-
+        
     vfunc = np.vectorize(catify)
     cats = vfunc(r_all, score)
 
@@ -105,7 +118,7 @@ def flat_fish(seqId, seqLen):
                 return
             #SEQ1  EMBL  atg  103  105  .  +  0
             F.write("\t".join(map(str, [
-                seqId, 'Hagfish', 'cat%d' % cat,
+                seqId, 'Hagfish', 'cat_%s' % CATEGORIES[cat],
                 sta, sto, '.', '.', '.',
                 'ID="Hagfish_cat_%s_%s_%d"' % (seqId, cat, sta)
                 ])))
