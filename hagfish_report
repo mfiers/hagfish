@@ -84,6 +84,7 @@ if __name__ == '__main__':
     cum_r_low_ends = np.array([])
 
     seqCount =  0
+    foundBins = False
     for seqId in seqs_to_parse:
 
         seqCount += 1
@@ -130,11 +131,12 @@ if __name__ == '__main__':
 
         l.debug("Calculated score: min %s, max %s" % (np.min(score), np.max(score)))
         
-        if seqCount == 1:
+        if foundBins == False:
             #determine what the bins are
             maxx = max(max(r_ok), max(r_high), max(r_low))
             maxx = 1500 * ( ( maxx / 1000 ) + 1 )             
             bins =  np.array([0,1,2,3,4] + range(5, maxx))
+            foundBins = True
 
         rBins = np.array([0,1,10,20,30,40,50,100,int(10e9)])
 
