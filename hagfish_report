@@ -47,7 +47,7 @@ else:
 
 
 if __name__ == '__main__':
-
+    
     if not os.path.exists('report'):
         os.makedirs('report')
 
@@ -66,14 +66,15 @@ if __name__ == '__main__':
         
     l.info("discovered %d sequences" % len(seqInfo))
 
+
+    global_mode=False
     if len(args) > 0:
         seqs_to_parse = args
     else:
+        global_mode=True
         if len(seqInfo) > 18:
             l.info("quite a few sequences (%d) :( might take a while!" % len(seqInfo))
         seqs_to_parse = seqInfo.keys()
-
-
 
     cum_r_ok = np.array([])
     cum_r_high = np.array([])
@@ -106,8 +107,8 @@ if __name__ == '__main__':
             l.critical("skipping %s - no data" % seqId)
             continue
 
-        #get the cumulative 
-        if seqLen >= options.cum_seqlen_cutoff:
+        #add to the cumulative plot
+        if seqLen >= options.cum_seqlen_cutoff: 
             cum_r_ok = np.concatenate((cum_r_ok, r_ok))
             cum_r_high = np.concatenate((cum_r_high, r_high))
             cum_r_low = np.concatenate((cum_r_low, r_low))

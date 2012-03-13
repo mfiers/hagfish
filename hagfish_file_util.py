@@ -25,7 +25,7 @@ def np_load(file_base, what):
     """
     reimplement the crappy np.savez function
     """
-    l.info("loading %s %s" % (file_base, what))
+    l.debug("loading %s %s" % (file_base, what))
     file_name = '%s.%s.gz' % (file_base, what)
     F = gzip.open(file_name, 'r')
     data = cPickle.load(F)
