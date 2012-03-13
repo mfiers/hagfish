@@ -1,0 +1,319 @@
+#!/usr/bin/env python
+import os
+import sys
+import math
+import pickle
+import jinja2
+
+import numpy as np
+import matplotlib as mpl
+mpl.use('agg')
+import matplotlib.pyplot as plt
+import matplotlib.mlab as mlab
+import scipy.stats
+
+import logging
+import optparse
+
+from hagfish_file_util import *
+
+## Arguments: General options 
+parser = optparse.OptionParser()
+parser.add_option('-v', dest='verbose', action="count", 
+                  help='Show debug information')
+
+parser.add_option('-l', dest='seqlen_cutoff', type='int',
+                  default=2000, help='cutoff for seq lenght in calculating ' + 
+                  'stats - ignore seqs shorter than this')
+
+parser.add_option('-x', dest='noseq_cutoff', type='int',
+                  default=10000000, help='no of sequences to process')
+
+parser.add_option('--cxmax', dest='cxmax', type='int',
+                  help='max x-axis value for the inverse cumulative plot')
+                  
+options, args = parser.parse_args()
+
+l = logging.getLogger('hagfish')
+handler = logging.StreamHandler()
+logmark = chr(27) + '[0;37;44mHAGFISH' + \
+          chr(27) + '[0m ' 
+
+formatter = logging.Formatter(
+    logmark + '%(levelname)-6s %(message)s')
+
+handler.setFormatter(formatter)
+l.addHandler(handler)
+
+if options.verbose >= 2:
+    l.setLevel(logging.DEBUG)
+elif options.verbose == 1:
+    l.setLevel(logging.INFO)
+else:
+    l.setLevel(logging.WARNING)
+
+
+if __name__ == '__main__':
+    
+    if not os.path.exists('report'):
+        os.makedirs('report')
+
+    #read an arbitrary seqId file
+    for f in os.listdir('seqInfo'):
+        if '.seqinfo' in f:
+            seqInfoFile = os.path.join('seqInfo', f)
+            break
+        else:
+            l.critical("cannot find a seqInfo file")
+            sys.exit(-1)
+
+    l.info("reading %s for seqinfo" % seqInfoFile)
+    with open(seqInfoFile) as F:
+        seqInfo = pickle.load(F)
+        
+    l.info("discovered %d sequences" % len(seqInfo))
+
+    seqs_to_parse = seqInfo.keys()
+
+    r_ok = np.array([])
+    r_high = np.array([])
+    r_low = np.array([])
+
+    r_ok_ends = np.array([])
+    r_high_ends = np.array([])
+    r_low_ends = np.array([])
+
+    seqCount =  0
+    totalSeqLen = 0 
+    for seqId in seqs_to_parse:
+
+        seqCount += 1
+        seqLen = seqInfo[seqId]['length']
+
+        if seqCount > options.noseq_cutoff: break
+        
+        if seqLen < options.seqlen_cutoff:
+            l.info("ignoring %s (%d nt)" % (seqId, seqLen))
+            continue
+
+        
+        #read the coverage plots
+        file_base = os.path.join('combined', seqId)
+        
+        try:
+            tmp_r_ok = np_load(file_base, 'r_ok')
+            tmp_r_high = np_load(file_base, 'r_high')
+            tmp_r_low = np_load(file_base, 'r_low')
+
+            tmp_r_ok_ends = np_load(file_base, 'r_ok_ends')
+            tmp_r_high_ends = np_load(file_base, 'r_high_ends')
+            tmp_r_low_ends = np_load(file_base, 'r_low_ends')
+            
+        except IOError:
+            l.critical("skipping %s - no data" % seqId)
+            continue
+
+        #add to the cumulative plot
+        if seqLen >= options.seqlen_cutoff: 
+            r_ok = np.concatenate((r_ok, tmp_r_ok))
+            r_high = np.concatenate((r_high, tmp_r_high))
+            r_low = np.concatenate((r_low, tmp_r_low))
+            r_ok_ends = np.concatenate((r_ok_ends, tmp_r_ok_ends))
+            r_high_ends = np.concatenate((r_high_ends, tmp_r_high_ends))
+            r_low_ends = np.concatenate((r_low_ends, tmp_r_low_ends))
+
+        totalSeqLen += seqLen
+        l.info("processing %s (%d nt)" % (seqId, seqLen))
+
+
+
+
+    seqLen = totalSeqLen
+    l.info("processed %d sequences" % seqCount)
+    l.info("with a total length of %s" % seqLen)
+    
+    median_ok = np.median(r_ok)
+    median_avg = np.mean(r_ok)
+
+    if median_ok == 0: 
+        l.error("median is zero - using average :(")
+        median_ok = median_avg
+    
+    l.info("median ok for %s is %s" % (seqId, median_ok))
+    l.info("average ok for %s is %s" % (seqId, median_avg))
+
+    score = 0.5 * median_ok * (
+        1 - 2 * np.exp(-1 * (r_ok / median_ok))
+        + np.exp(-1 * ( ( r_ok + r_low + r_high) / median_ok) ) )
+
+    l.debug("Calculated score: min %s, max %s" % (np.min(score), np.max(score)))
+
+    #determine what the bins are
+    maxx = max(max(r_ok), max(r_high), max(r_low))
+    maxx = 1500 * ( ( maxx / 1000 ) + 1 )             
+    bins =  np.array([0,1,2,3,4] + range(5, maxx))
+    
+    rBins = np.array([0,1,10,20,30,40,50,100,int(10e9)])
+
+    ke = scipy.stats.gaussian_kde(score)
+    no_score_bins = 100
+    score_bins = (np.array(range(0,no_score_bins+1)) / (no_score_bins / 2.)) - 1
+    score_density = ke.evaluate(score_bins)
+
+    #l.debug("score histogram edges %s " % score_edges)
+    #l.debug("score histogram %s " % score_hist)
+
+    l.debug("Bins %s" % bins)
+    ok_hist, oe = np.histogram(r_ok, bins = bins)
+    high_hist, he = np.histogram(r_high, bins = bins)
+    low_hist, le = np.histogram(r_low, bins = bins)
+
+    ok_hist_ends, _oee = np.histogram(r_ok_ends, bins = bins)
+    high_hist_ends, _hee = np.histogram(r_high_ends, bins = bins)
+    low_hist_ends, _lee = np.histogram(r_low_ends, bins = bins)
+
+    hist_edges = oe
+
+    rep_ok_hist_ends, roee = np.histogram(r_ok_ends, bins = rBins)
+    rep_high_hist_ends, rhee = np.histogram(r_high_ends, bins = rBins)
+    rep_low_hist_ends, rlee = np.histogram(r_low_ends, bins = rBins)
+
+    rep_ok_hist, roe = np.histogram(r_ok, bins = rBins)
+    rep_high_hist, rhe = np.histogram(r_high, bins = rBins)
+    rep_low_hist, rle = np.histogram(r_low, bins = rBins)
+
+
+    rep_hist_edges = roee
+
+    #print score plot
+    fig = plt.figure()
+    plt.title("Score density distribution for %s" % seqId,
+              fontdict={'size' : 10})
+    ax = fig.add_subplot(111)
+    ax.plot(score_bins, score_density)
+    ax.set_xlabel('score')
+    ax.set_ylabel('density')
+    #ax.set_yscale('log')        
+    #ax.set_xscale('log')
+    plt.savefig(os.path.join('report', 'combined_score.density.png'))
+
+    #print normal plot
+    fig = plt.figure()                
+    ax = fig.add_subplot(111)
+    plt.title('Coverage distribution',
+              fontdict={'size' : 10})
+    ax.set_xlabel('coverage')
+    ax.set_ylabel('no nucleotides with coverage')        
+
+    ax.plot((he[:-1]), (high_hist), c='#B73147',
+             label="long insert")
+    ax.plot((hist_edges[:-1]), (ok_hist), c='#3BB058',
+            label="correct insert")
+    ax.plot((le[:-1]), (low_hist), c='#538ABF',
+            label="short insert")
+
+
+    #print coverage distribution plot
+    fig = plt.figure()                
+    ax = fig.add_subplot(111)
+    plt.title('Coverage distribution',
+              fontdict={'size' : 10})
+    ax.set_xlabel('coverage')
+    ax.set_ylabel('no nucleotides with coverage')        
+
+    ax.plot((he[:-1]), (high_hist), ',-', c='#B73147',
+             label="long insert")
+    ax.plot((hist_edges[:-1]), (ok_hist), ',-', c='#3BB058',
+            label="correct insert")
+    ax.plot((le[:-1]), (low_hist), ',-', c='#538ABF',
+            label="short insert")
+
+
+    minX, maxX = ax.get_axes().get_xlim()
+    #if minX < 1: minX = 0
+    #minX = 0
+
+    ax.hlines(seqLen, minX, maxX, linestyles='solid',
+              linewidth=1, colors="black",
+              label='Sequence length (%d)' % seqLen)
+    ax.legend(prop={'size' :'x-small'})
+
+    ax.set_yscale('log')        
+    ax.set_xscale('log')
+    ax.hlines(seqLen, minX, maxX, linestyles='solid',
+              linewidth=1, colors="black",
+              label='Sequence length (%d)' % seqLen)
+    plt.savefig(os.path.join('report', 'combined_coverage.png'))
+
+
+    #print cumulative coverage distribution plot
+    fig = plt.figure()                
+    ax = fig.add_subplot(111)
+    plt.title('Inverse cumulative coverage',
+              fontdict={'size' : 10})
+    ax.set_xlabel('coverage')
+    ax.set_ylabel('genome fraction')        
+
+
+    cp_high_hist = np.cumsum(high_hist[1:][::-1])[::-1] / float(seqLen)
+    cp_high_hist_ends = np.cumsum(high_hist_ends[1:][::-1])[::-1] / float(seqLen)
+
+    cp_ok_hist = np.cumsum(ok_hist[1:][::-1])[::-1] / float(seqLen)
+    cp_ok_hist_ends = np.cumsum(ok_hist_ends[1:][::-1])[::-1] / float(seqLen)
+
+    cp_low_hist = np.cumsum(low_hist[1:][::-1])[::-1] / float(seqLen)
+    cp_low_hist_ends = np.cumsum(low_hist_ends[1:][::-1])[::-1] / float(seqLen)
+
+
+    ax.fill_between(he[1:-1],
+                    cp_high_hist_ends, cp_high_hist,
+                    color='#B73147', alpha=0.3)
+    ax.fill_between(he[1:-1],
+                    cp_ok_hist_ends, cp_ok_hist,
+                    color='#3BB058', alpha=0.3)
+    ax.fill_between(he[1:-1],
+                    cp_low_hist_ends, cp_low_hist,
+                    color='#538ABF', alpha=0.3)
+
+    ax.plot((he[1:-1]), cp_high_hist_ends, '-', c='#B73147',
+              label="long insert")
+    ax.plot((he[1:-1]), cp_ok_hist_ends, '-', c='#3BB058',
+             label="correct insert")
+    ax.plot((he[1:-1]), cp_low_hist_ends, '-', c='#538ABF',
+             label="short insert")
+
+
+    minX, maxX = ax.get_axes().get_xlim()
+    
+    if options.cxmax:
+        maxX = options.cxmax
+    l.info("set xmax to %d" % options.cxmax)
+    ax.set_xlim(1, maxX)
+    ax.set_ylim(0, 1)
+    #ax.set_yscale('log')        
+    ax.set_xscale('log')
+    plt.savefig(os.path.join('report', 'combined_cumul.coverage.png'))
+
+
+
+    #generate text reports
+    report_file = os.path.join('report', 'combined.report')
+    template_file = os.path.join(os.path.dirname(__file__),
+                                 'report_template.jinja2')
+
+
+    with open(template_file) as F:
+        template = jinja2.Template(open(template_file).read())
+
+    rep_ok_proc = rep_ok_hist / float(seqLen) * 100
+    rep_ok_proc_ends = rep_ok_hist_ends / float(seqLen) * 100
+
+    rep_high_proc = rep_high_hist / float(seqLen) * 100
+    rep_high_proc_ends = rep_high_hist_ends / float(seqLen) * 100
+
+    rep_low_proc = rep_low_hist / float(seqLen) * 100
+    rep_low_proc_ends = rep_low_hist_ends / float(seqLen) * 100
+
+    with open(report_file, 'w') as F:
+        F.write(template.render(locals()))
+
