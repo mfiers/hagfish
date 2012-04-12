@@ -1,0 +1,157 @@
+#!/usr/bin/env python
+
+import os
+import sys
+import math
+
+import numpy as np
+import matplotlib as mpl
+mpl.use('agg')
+import matplotlib.pyplot as plt
+import matplotlib.mlab as mlab
+import matplotlib as mpl
+#import matplotlib.transforms
+#import matplotlib.rc as rc
+import pylab as pl
+
+import subprocess
+
+from hagfishUtils import *
+
+## Arguments: General options 
+parser = getHagfishOptparser()
+parser.add_option('-S', dest='score', action='store_true',
+                  help='plot the hagfish score' )
+
+#parser.add_option('--pe', dest='pairedends', action='store_true',
+#                  help='plot only based on paired ends')
+#parser.add_option('--pe', dest='pairedends', action='store_true',
+#                  help='plot only based on paired ends')
+
+addPlotParameters(parser)
+options, args = parser.parse_args()
+
+l = getLogger('main', options.verbose)
+
+l.info("starting %s" % sys.argv[0])
+    
+#load the coverage plots
+data = hagfishData(options, args)
+
+#prepare the plot
+plot = hagfishPlot(options, data)
+
+PLOTHIGH = True
+PLOTOK = True
+PLOTLOW = True
+
+class plotter(hagfishPlotBand):
+    
+    def plotBand(self):
+        self.l.debug("Start plotting")
+        yc = self.yCorrection
+
+        #low
+        self.ax.fill_between(
+            self.locx,
+            self.zero + yc,
+            np.minimum(self.bandTop, (0.5 * self.low) + yc),
+            zorder=10, color=COLDARKBLUE)
+
+        #print 'ok'
+        self.ax.fill_between(
+            self.locx,
+            np.minimum(self.bandTop, (0.5 * self.low) + yc),
+            np.minimum(self.bandTop, (0.5 * (self.low + self.ok)) + yc),
+            zorder=10, color=COLDARKGREEN)
+
+        #print 'high'
+        self.ax.fill_between(
+            self.locx,
+            np.minimum(self.bandTop, (0.5 * (self.low + self.ok)) + yc),
+            np.minimum(self.bandTop, (0.5 * (self.low + self.ok + self.high)) + yc),
+            zorder=10, color=COLDARKRED)
+
+
+
+        #low
+        self.ax.fill_between(
+            self.locx,
+            self.zero + yc,
+            np.maximum(self.bandBottom, -(0.5 * self.low_ends) + yc),
+            zorder=10, color=COLDARKBLUE)
+
+        #print 'ok'
+        self.ax.fill_between(
+            self.locx,
+            np.maximum(self.bandBottom, -(0.5 * self.low_ends) + yc),
+            np.maximum(self.bandBottom, -(0.5 * (self.low_ends + self.ok_ends)) + yc),
+            zorder=10, color=COLDARKGREEN)
+
+        #print 'high'
+        self.ax.fill_between(
+            self.locx,
+            np.maximum(self.bandBottom, -(0.5 * (self.low_ends + self.ok_ends)) + yc),
+            np.maximum(self.bandBottom, -(0.5 * (self.low_ends + self.ok_ends + self.high_ends)) + yc),
+            zorder=10, color=COLDARKRED)
+
+
+        #ok_ends
+        # self.ax.fill_between(
+        #     self.locx,
+        #     np.minimum(self.bandTop, self.okh_ends + yc),
+        #     np.maximum(self.bandBottom, -self.okh_ends + yc),
+        #     color=COLDARKGREEN,
+        #     zorder=1)
+
+        # #print 'high'
+        # self.ax.fill_between(
+        #     self.locx,
+        #     np.minimum(self.bandTop, self.okh_ends + yc),
+        #     np.minimum(self.bandTop, self.okh_ends + self.high_ends + yc),
+        #     zorder = 1,
+        #     color=COLDARKRED)
+
+
+
+        if self.__dict__.has_key('nns'):
+            self.l.debug("plotting N band")
+            self.ax.fill_between(
+                self.locx,
+                self.zero + yc + (self.plot.maxY * self.nns),
+                self.zero + yc - (self.plot.maxY * self.nns),
+                color=COLLIGHTYELLOW)
+
+
+
+        if options.score:
+            score = self.data.medianH * (
+                1 - 2 * np.exp(-1 * (self.ok / self.data.median))
+                + np.exp(-1 * ( ( self.ok + self.low + self.high) / self.data.median))
+                )
+            l.debug("Plotting score: min %s, max %s" % (np.min(score), np.max(score)))
+
+            self.ax.plot(self.locx, score + yc, color='#FF6F00', linewidth=2)
+
+        
+    def setYticks2(self):
+        
+        self.plot.yTicks2.append(self.yCorrection - self.data.medianH)
+        self.plot.yTicks2.append(self.yCorrection)
+        self.plot.yTicks2.append(self.yCorrection + self.data.medianH)
+        self.plot.yTickLabels2.append("%s" % -self.data.median)
+        self.plot.yTickLabels2.append("0")
+        self.plot.yTickLabels2.append("%s" % self.data.median)
+        self.ax.axhline(
+            self.yCorrection - self.data.medianH,
+            alpha=0.3,
+            color='black')
+        self.ax.axhline(
+            self.yCorrection + self.data.medianH,
+            alpha=0.3,
+            color='black')
+        
+plot.plotBands(plotter)
+plot.save(tag='cplot2')
+
+ 
