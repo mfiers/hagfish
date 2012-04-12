@@ -51,28 +51,49 @@ class plotter(hagfishPlotBand):
         self.l.debug("Start plotting")
         yc = self.yCorrection
 
-        #print 'high'
+        #low
         self.ax.fill_between(
             self.locx,
-            np.minimum(self.bandTop, self.okh + yc),
-            np.minimum(self.bandTop, self.okh + self.high + yc),
-            zorder = 1,
-            color=COLDARKRED)
+            self.zero + yc,
+            np.minimum(self.bandTop, (0.5 * self.low) + yc),
+            zorder=10, color=COLDARKBLUE)
+
         #print 'ok'
         self.ax.fill_between(
             self.locx,
-            np.minimum(self.bandTop, self.okh + yc),
-            np.maximum(self.bandBottom, -self.okh + yc),
-            color=COLDARKGREEN,
-            zorder=1)
+            np.minimum(self.bandTop, (0.5 * self.low) + yc),
+            np.minimum(self.bandTop, (0.5 * (self.low + self.ok)) + yc),
+            zorder=10, color=COLDARKGREEN)
+
+        #print 'high'
+        self.ax.fill_between(
+            self.locx,
+            np.minimum(self.bandTop, (0.5 * (self.low + self.ok)) + yc),
+            np.minimum(self.bandTop, (0.5 * (self.low + self.ok + self.high)) + yc),
+            zorder=10, color=COLDARKRED)
+
+
 
         #low
         self.ax.fill_between(
             self.locx,
-            np.maximum(self.bandBottom, -self.okh + yc),
-            np.maximum(self.bandBottom, -(self.okh + self.low) + yc),
-            color=COLDARKBLUE,
-            zorder=1)
+            self.zero + yc,
+            np.maximum(self.bandBottom, -(0.5 * self.low_ends) + yc),
+            zorder=10, color=COLDARKBLUE)
+
+        #print 'ok'
+        self.ax.fill_between(
+            self.locx,
+            np.maximum(self.bandBottom, -(0.5 * self.low_ends) + yc),
+            np.maximum(self.bandBottom, -(0.5 * (self.low_ends + self.ok_ends)) + yc),
+            zorder=10, color=COLDARKGREEN)
+
+        #print 'high'
+        self.ax.fill_between(
+            self.locx,
+            np.maximum(self.bandBottom, -(0.5 * (self.low_ends + self.ok_ends)) + yc),
+            np.maximum(self.bandBottom, -(0.5 * (self.low_ends + self.ok_ends + self.high_ends)) + yc),
+            zorder=10, color=COLDARKRED)
 
 
         #ok_ends
@@ -99,7 +120,7 @@ class plotter(hagfishPlotBand):
                 self.locx,
                 self.zero + yc + (self.plot.maxY * self.nns),
                 self.zero + yc - (self.plot.maxY * self.nns),
-                color=COLLIGHTYELLOW, alpha=0.6)
+                color=COLLIGHTYELLOW)
 
 
 
@@ -118,9 +139,9 @@ class plotter(hagfishPlotBand):
         self.plot.yTicks2.append(self.yCorrection - self.data.medianH)
         self.plot.yTicks2.append(self.yCorrection)
         self.plot.yTicks2.append(self.yCorrection + self.data.medianH)
-        self.plot.yTickLabels2.append("%s" % -self.data.medianH)
+        self.plot.yTickLabels2.append("%s" % -self.data.median)
         self.plot.yTickLabels2.append("0")
-        self.plot.yTickLabels2.append("%s" % self.data.medianH)
+        self.plot.yTickLabels2.append("%s" % self.data.median)
         self.ax.axhline(
             self.yCorrection - self.data.medianH,
             alpha=0.3,
@@ -131,6 +152,6 @@ class plotter(hagfishPlotBand):
             color='black')
         
 plot.plotBands(plotter)
-plot.save(tag='cbin')
+plot.save(tag='cplot2')
 
  

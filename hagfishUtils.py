@@ -1,4 +1,5 @@
 import os
+import sys
 import math
 import copy
 
@@ -24,6 +25,28 @@ COLOR4 = '#DEA000' #yellow
 COLOR5 = '#078C7A' #cyan
 COLOR6 = '#EE1904' #lighter red
 COLOR7 = '#32AE1C' # lighter green
+
+COLDARKGREEN = '#007D1C'
+COLDARKRED = '#A61000'
+COLDARKBLUE = '#015666'
+COLDARKYELLOW = '#A65100'
+
+COLLIGHTGREEN = '#38E05D'
+COLLIGHTRED = '#FF5240'
+COLLIGHTBLUE = '#37B6CE'
+COLLIGHTYELLOW = '#FF9D40'
+
+COLDARKGREEN = '#007D1C'
+COLDARKRED = '#9F0025'
+COLDARKPURPLE = '#42036F'
+COLDARKBLUE = '#06266F'
+COLDARKYELLOW = '#A66F00'
+
+COLLIGHTGREEN = '#38E05D'
+COLLIGHTRED = '#B12D4C'
+COLLIGHTBLUE = '#4671D5'
+COLLIGHTYELLOW = '#FFBF40'
+COLLIGHTPURPLE = '#963FD5'
 
 COLMAP1 = mpl.colors.LinearSegmentedColormap.from_list(
     'COLMAP1', 
@@ -144,10 +167,22 @@ class hagfishData:
         self.data['ok'] = self.ok
         self.data['low'] = self.low
         self.data['high'] = self.high
+        
         self.data['ok_ends'] = self.ok_ends
         self.data['low_ends'] = self.low_ends
         self.data['high_ends'] = self.high_ends
 
+        #see if there is gapdata to load
+        gapbase = os.path.join('gaps', self.seqId)
+        if np_exists(gapbase, 'nns'):
+            self.l.info("loading gap data")
+            self.nns = np_load(gapbase, 'nns')
+            self.vectors.append('nns')
+        else:
+            self.l.info("Cannot find gap data")
+            self.nns = None
+        self.data['nns'] = self.nns
+            
         self.all = self.low + self.ok + self.high
 
         self.seqLen = len(self.ok)
@@ -184,15 +219,24 @@ class hagfishPlot:
         self.start = 0
         if options.start:
             self.start = int(float(options.start))
+        if self.start > data.seqLen:
+            self.l.critical("start plot is greater than sequence length")
+            sys.exit(-1)
 
         self.stop = self.data.seqLen
         if options.stop:
             self.stop = int(float(options.stop))
             if self.stop > data.seqLen:
                 self.stop = data.seqLen
+            self.l.info("plot stops at %d" % self.stop)
+
+        if self.start > self.stop:
+            self.l.critical("plot start is greater than plot stop")
+            sys.exit(-1)
                 
         self.plotLen = self.stop - self.start
         self.ntPerBand = int(float(options.ntPerBand))
+
         if self.ntPerBand == -1:
             self.l.debug("nt per band is not specified")                    
             self.ntPerBand = int(1e6)            
@@ -303,16 +347,18 @@ class hagfishPlot:
 
     def save(self, tag=""):
         self.ax.set_xlim(0, self.ntPerBand)
+
         if self.options.outfile:            
             outFileName = self.options.outfile
         else:
             outFileName = self.data.seqId
 
+        if self.options.start or self.options.stop:
+            outFileName += "_%d_%d" % (self.start, self.stop)
+
         if tag:
             outFileName += '_%s' % tag
             
-        if self.options.start or self.options.stop:
-            outFileName += "_%d_%d" % (self.start, self.stop)
 
         for f in self.options.format:
             self.l.info("writing to %s.%s" % (outFileName, f))
@@ -352,6 +398,7 @@ class hagfishPlotBand:
         #special form of x
         self.locx = self.x - self.start
         self.zero = np.zeros_like(self.locx)
+
     def plot(self):
         """
         Should be overridden

@@ -1,0 +1,75 @@
+#!/usr/bin/env python
+import os
+import sys
+import math
+import pickle
+import jinja2
+
+import numpy as np
+
+import logging
+import optparse
+
+from hagfish_file_util import *
+
+## Arguments: General options 
+parser = optparse.OptionParser()
+
+parser.add_option('-f', dest='fasta', 
+                  help='reference fasta file')
+parser.add_option('-v', dest='verbose', action="count", 
+                  help='Show debug information')
+                  
+options, args = parser.parse_args()
+
+l = logging.getLogger('hagfish')
+
+handler = logging.StreamHandler()
+logmark = chr(27) + '[0;37;44mHAGFISH' + \
+          chr(27) + '[0m ' 
+
+formatter = logging.Formatter(
+    logmark + '%(levelname)-6s %(message)s')
+
+handler.setFormatter(formatter)
+l.addHandler(handler)
+
+if options.verbose >= 2:
+    l.setLevel(logging.DEBUG)
+elif options.verbose == 1:
+    l.setLevel(logging.INFO)
+else:
+    l.setLevel(logging.WARNING)
+
+if not options.fasta:
+    l.critical("Must specify a fasta input file")
+    sys.exit(-1)
+
+if __name__ == '__main__':
+    
+    if not os.path.exists('gaps'):
+        os.makedirs('gaps')
+
+    #read an arbitrary seqId file
+    for f in os.listdir('seqInfo'):
+        if '.seqinfo' in f:
+            seqInfoFile = os.path.join('seqInfo', f)
+            break
+        else:
+            l.critical("cannot find a seqInfo file")
+            sys.exit(-1)
+
+    l.info("reading %s for seqinfo" % seqInfoFile)
+    with open(seqInfoFile) as F:
+        seqInfo = pickle.load(F)
+        
+    l.info("discovered %d sequences" % len(seqInfo))
+
+    seqslist = set(seqInfo.keys())
+
+    for seqId, seq in fastareader(options.fasta):
+        l.info('Processing %s (%d nt)' % (seqId, len(seq)))
+
+        nns = np.array(np.array(list(seq)) == 'n', 'b')
+        np_savez(os.path.join('gaps', seqId), nns = nns )
+        
