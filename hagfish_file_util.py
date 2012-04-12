@@ -1,3 +1,5 @@
+import os
+import bz2
 import gzip
 import cPickle
 import logging
@@ -21,6 +23,10 @@ def np_savez(file_base, **kwargs):
         cPickle.dump(kwargs[k], F)
         F.close()
 
+def np_exists(file_base, what):
+    fn = '%s.%s.gz' % (file_base, what)
+    return os.path.exists(fn)
+
 def np_load(file_base, what):
     """
     reimplement the crappy np.savez function
@@ -32,3 +38,36 @@ def np_load(file_base, what):
     F.close()
     return data
 
+
+
+def fastareader(f):
+    if type(f) == type('hi'):
+        #it is probably a filename
+        if f[-4:] == '.bz2':
+            F = bz2.BZ2File(f)
+        else:
+            F = open(f, 'r')
+    else:
+        #probably a file handle, or stdin
+        F = f
+
+    name, seq = "", []
+    while True:
+        l = F.readline()
+        if not l: break
+        
+        l = l.strip()
+        if not l: continue
+
+        if l[0] == '>':
+            if name and seq:
+                yield name, "".join(seq)
+            seq = []
+            name = l[1:].split()[0]
+        else:
+            seq.append("".join(l.split()).lower())
+
+    if name and seq:
+        yield name, "".join(seq)
+
+    F.close()

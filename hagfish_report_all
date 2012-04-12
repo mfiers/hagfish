@@ -57,6 +57,8 @@ if __name__ == '__main__':
     
     if not os.path.exists('report'):
         os.makedirs('report')
+    if not os.path.exists('report/raw'):
+        os.makedirs('report/raw')
 
     #read an arbitrary seqId file
     for f in os.listdir('seqInfo'):
@@ -125,9 +127,6 @@ if __name__ == '__main__':
         totalSeqLen += seqLen
         l.info("processing %s (%d nt)" % (seqId, seqLen))
 
-
-
-
     seqLen = totalSeqLen
     l.info("processed %d sequences" % seqCount)
     l.info("with a total length of %s" % seqLen)
@@ -150,8 +149,13 @@ if __name__ == '__main__':
 
     #determine what the bins are
     maxx = max(max(r_ok), max(r_high), max(r_low))
-    maxx = 1500 * ( ( maxx / 1000 ) + 1 )             
-    bins =  np.array([0,1,2,3,4] + range(5, maxx))
+
+    l.info("Max coverage value %d" % maxx)
+    
+    #maxx = 1500 * ( ( maxx / 1000 ) + 1 )
+    maxx = maxx * 1.1
+    #bins =  np.array([0,1,2,3,4] + range(5, maxx))
+    bins =  np.array(range(0, maxx))
     
     rBins = np.array([0,1,10,20,30,40,50,100,int(10e9)])
 

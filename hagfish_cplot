@@ -23,6 +23,11 @@ parser = getHagfishOptparser()
 parser.add_option('-S', dest='score', action='store_true',
                   help='plot the hagfish score' )
 
+#parser.add_option('--pe', dest='pairedends', action='store_true',
+#                  help='plot only based on paired ends')
+#parser.add_option('--pe', dest='pairedends', action='store_true',
+#                  help='plot only based on paired ends')
+
 addPlotParameters(parser)
 options, args = parser.parse_args()
 
@@ -46,165 +51,56 @@ class plotter(hagfishPlotBand):
         self.l.debug("Start plotting")
         yc = self.yCorrection
 
-        ## print lightly colored high/low/good
-        ## to server a background
-        #self.l.debug("Plot background")
+        #print 'high'
+        self.ax.fill_between(
+            self.locx,
+            np.minimum(self.bandTop, self.okh + yc),
+            np.minimum(self.bandTop, self.okh + self.high + yc),
+            zorder = 1,
+            color=COLDARKRED)
+        #print 'ok'
+        self.ax.fill_between(
+            self.locx,
+            np.minimum(self.bandTop, self.okh + yc),
+            np.maximum(self.bandBottom, -self.okh + yc),
+            color=COLDARKGREEN,
+            zorder=1)
 
-        # if PLOTHIGH:
-        #     ## bg high
-        #     self.ax.fill_between(
-        #             self.locx,
-        #             self.okh + yc,
-        #             self.okh + self.high + yc,
-        #             alpha = 1,
-        #             zorder = 0,
-        #             color=COLOR2)
-            
-        # if PLOTLOW:
-        #     ### bg low
-        #     self.ax.fill_between(
-        #         self.locx,
-        #         -self.okh + yc,
-        #         (-self.okh - self.low) + yc,
-        #         alpha=1,
-        #         color=COLOR3,
-        #         zorder=0)
+        #low
+        self.ax.fill_between(
+            self.locx,
+            np.maximum(self.bandBottom, -self.okh + yc),
+            np.maximum(self.bandBottom, -(self.okh + self.low) + yc),
+            color=COLDARKBLUE,
+            zorder=1)
 
-        # if PLOTOK:
-        #     ### bg ok
-        #     self.ax.fill_between(
-        #         self.locx,
-        #         -self.okh + yc,
-        #         self.okh + yc,
-        #         alpha=1,
-        #         color=COLOR1,
-        #         zorder=0)
 
-        # if PLOTHIGH:
-        #     ## outlines
-        #     self.ax.plot( 
-        #         self.locx, 
-        #         self.okh + self.high + yc,
-        #         color = 'black', linewidth=0.5,
-        #         zorder=0)
-        # if PLOTLOW:
-        #     self.ax.plot(
-        #         self.locx,
-        #         -(self.okh + self.low) + yc,
-        #         color = 'black',
-        #         linewidth=0.5,
-        #         zorder=0)
-
-        ## Reprint High/ok/low - now with a cutof to stay
-        ## in the band
-
-        if PLOTHIGH:
-            #high
-            self.ax.fill_between(
-                self.locx,
-                np.minimum(self.bandTop, self.okh + yc),
-                np.minimum(self.bandTop, self.okh + self.high + yc),
-                alpha = 0.8,\
-                    zorder = 1,
-                color=COLOR2)
-        
-        if PLOTLOW:
-            #low
-            self.ax.fill_between(
-                self.locx,
-                np.maximum(self.bandBottom, -self.okh + yc),
-                np.maximum(self.bandBottom, (-self.okh - self.low) + yc),
-                alpha=0.8,
-                color=COLOR3,
-                zorder=1)
-            #low
-            self.ax.fill_between(
-                self.locx,
-                np.maximum(self.bandBottom, yc),
-                np.maximum(self.bandBottom, -self.low_ends + yc),
-                alpha=0.8,
-                color="black",
-                zorder=12)
-
-        if PLOTOK:
-            #ok
-            self.ax.fill_between(
-                self.locx,
-                np.minimum(self.bandTop, self.okh + yc),
-                np.maximum(self.bandBottom, -self.okh + yc),
-                alpha=0.8,
-                color=COLOR1,
-                zorder=1)
-
+        #ok_ends
         # self.ax.fill_between(
         #     self.locx,
-        #     self.okh_ends + yc,
-        #     -self.okh_ends + yc,
-        #     alpha=0.3,
-        #     color=COLOR4,
-        #     zorder=2)
+        #     np.minimum(self.bandTop, self.okh_ends + yc),
+        #     np.maximum(self.bandBottom, -self.okh_ends + yc),
+        #     color=COLDARKGREEN,
+        #     zorder=1)
 
-        # self.ax.fill_between(self.locx, 
-        #                      self.okh + self.high + yc, 
-        #                      self.okh + self.high + self.high_ends + yc, 
-        #                      color=COLOR4, 
-        #                      linewidth=1, 
-        #                      zorder=4)
-
-        # self.ax.fill_between(self.locx, 
-        #                      -self.okh - self.low + yc, 
-        #                      -self.okh - self.low - self.low_ends + yc, 
-        #                      color=COLOR4, 
-        #                      linewidth=1, 
-        #                      zorder=4)
-        #self.ax.plot(self.locx, -self.low_ends + yc, color=COLOR3, 
-        #             linewidth=0.5, zorder=12, alpha=0.5)
+        # #print 'high'
         # self.ax.fill_between(
-        #      self.locx,
-        #      self.okh_ends + yc,
-        #      self.okh_ends + self.high_ends + yc,
-        #      alpha=0.3,
-        #      color='black',
-        #      zorder=2)
+        #     self.locx,
+        #     np.minimum(self.bandTop, self.okh_ends + yc),
+        #     np.minimum(self.bandTop, self.okh_ends + self.high_ends + yc),
+        #     zorder = 1,
+        #     color=COLDARKRED)
 
-        #plot new outlines
-        #filter them, so that we only have outlines where the
-        #plot remains inside the band                
-        
-        # if PLOTHIGH:
-        #     self.ax.plot(
-        #         self.locx,
-        #         self.okh + self.high + yc,
-        #         color = 'black', linewidth = 0.5,
-        #         zorder =5,
-        #         clip_path=self.patch
-        #         )
 
-        # if PLOTOK:        
-        #     self.ax.plot(
-        #         self.locx,
-        #         self.okh + yc,
-        #         color = 'black', linewidth = 0.5,
-        #         zorder =5,
-        #         clip_path=self.patch
-        #         )
 
-        #     self.ax.plot(
-        #         self.locx,
-        #         -self.okh + yc,
-        #         color = 'black',
-        #         linewidth=0.5,
-        #         clip_path=self.patch,
-        #         zorder=5)
+        if self.__dict__.has_key('nns'):
+            self.l.debug("plotting N band")
+            self.ax.fill_between(
+                self.locx,
+                self.zero + yc + (self.plot.maxY * self.nns),
+                self.zero + yc - (self.plot.maxY * self.nns),
+                color=COLLIGHTYELLOW, alpha=0.6)
 
-        # if PLOTLOW:
-        #     self.ax.plot(
-        #          self.locx,
-        #          -(self.okh + self.low) + yc,
-        #          color = 'black',
-        #          linewidth=0.5,
-        #          clip_path=self.patch,
-        #          zorder=5)
 
 
         if options.score:
