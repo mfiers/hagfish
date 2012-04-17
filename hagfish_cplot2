@@ -56,21 +56,21 @@ class plotter(hagfishPlotBand):
             self.locx,
             self.zero + yc,
             np.minimum(self.bandTop, (0.5 * self.low) + yc),
-            zorder=10, color=COLDARKBLUE)
+            zorder=10, color=COLDARKBLUE, linewidth=0)
 
         #print 'ok'
         self.ax.fill_between(
             self.locx,
             np.minimum(self.bandTop, (0.5 * self.low) + yc),
             np.minimum(self.bandTop, (0.5 * (self.low + self.ok)) + yc),
-            zorder=10, color=COLDARKGREEN)
+            zorder=10, color=COLDARKGREEN, linewidth=0)
 
         #print 'high'
         self.ax.fill_between(
             self.locx,
             np.minimum(self.bandTop, (0.5 * (self.low + self.ok)) + yc),
             np.minimum(self.bandTop, (0.5 * (self.low + self.ok + self.high)) + yc),
-            zorder=10, color=COLDARKRED)
+            zorder=10, color=COLDARKRED, linewidth=0)
 
 
 
@@ -79,21 +79,21 @@ class plotter(hagfishPlotBand):
             self.locx,
             self.zero + yc,
             np.maximum(self.bandBottom, -(0.5 * self.low_ends) + yc),
-            zorder=10, color=COLDARKBLUE)
+            zorder=10, color=COLDARKBLUE, linewidth=0)
 
         #print 'ok'
         self.ax.fill_between(
             self.locx,
             np.maximum(self.bandBottom, -(0.5 * self.low_ends) + yc),
             np.maximum(self.bandBottom, -(0.5 * (self.low_ends + self.ok_ends)) + yc),
-            zorder=10, color=COLDARKGREEN)
+            zorder=10, color=COLDARKGREEN, linewidth=0)
 
         #print 'high'
         self.ax.fill_between(
             self.locx,
             np.maximum(self.bandBottom, -(0.5 * (self.low_ends + self.ok_ends)) + yc),
             np.maximum(self.bandBottom, -(0.5 * (self.low_ends + self.ok_ends + self.high_ends)) + yc),
-            zorder=10, color=COLDARKRED)
+            zorder=10, color=COLDARKRED, linewidth=0)
 
 
         #ok_ends
@@ -115,13 +115,17 @@ class plotter(hagfishPlotBand):
 
 
         if self.__dict__.has_key('nns'):
-            self.l.debug("plotting N band")
+            self.l.info("plotting N band")
+            self.l.info("maxY %s" % self.plot.maxY)
+            self.l.info("max min nns %s %s " % (np.max(self.nns), np.min(self.nns)))
+            self.l.info("bandbot, bandtop %s %s " % (self.bandBottom, self.bandTop))
+
             self.ax.fill_between(
                 self.locx,
-                self.zero + yc + (self.plot.maxY * self.nns),
-                self.zero + yc - (self.plot.maxY * self.nns),
+                yc + (self.plot.maxY * self.nns),
+                yc - (self.plot.maxY * self.nns),
+                linewidth=0,
                 color=COLLIGHTYELLOW)
-
 
 
         if options.score:
@@ -129,9 +133,27 @@ class plotter(hagfishPlotBand):
                 1 - 2 * np.exp(-1 * (self.ok / self.data.median))
                 + np.exp(-1 * ( ( self.ok + self.low + self.high) / self.data.median))
                 )
-            l.debug("Plotting score: min %s, max %s" % (np.min(score), np.max(score)))
+            l.info("Plotting score: min %s, max %s" % (np.min(score), np.max(score)))
 
-            self.ax.plot(self.locx, score + yc, color='#FF6F00', linewidth=2)
+            self.ax.plot(self.locx, score + yc, color='black', linewidth=2, zorder=20)
+
+
+        l.info("%s %s" % (self.start, self.stop))
+        txtx = -0.01 * self.plot.ntPerBand
+
+        self.ax.text(txtx, yc - self.data.medianH,'ecp', fontsize=9,
+                     horizontalalignment='right', verticalalignment='center',
+                     zorder=50)                     
+
+        self.ax.text(txtx, yc + self.data.medianH,'icp', fontsize=9,
+                     horizontalalignment='right', verticalalignment='center',
+                     zorder=50)
+
+        if self.band > 0:
+            self.ax.axhline(
+                self.yCorrection + self.plot.maxY, linewidth=3,
+                alpha=0.3, color=COLDARKYELLOW)
+            
 
         
     def setYticks2(self):
@@ -142,6 +164,7 @@ class plotter(hagfishPlotBand):
         self.plot.yTickLabels2.append("%s" % -self.data.median)
         self.plot.yTickLabels2.append("0")
         self.plot.yTickLabels2.append("%s" % self.data.median)
+
         self.ax.axhline(
             self.yCorrection - self.data.medianH,
             alpha=0.3,

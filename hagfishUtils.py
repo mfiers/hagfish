@@ -176,7 +176,7 @@ class hagfishData:
         gapbase = os.path.join('gaps', self.seqId)
         if np_exists(gapbase, 'nns'):
             self.l.info("loading gap data")
-            self.nns = np_load(gapbase, 'nns')
+            self.nns = np_load(gapbase, 'nns').astype(float)
             self.vectors.append('nns')
         else:
             self.l.info("Cannot find gap data")
@@ -277,7 +277,6 @@ class hagfishPlot:
             self.maxY = int(quant(self.data.okh, options.yfrac))
             self.minY = -self.maxY
             self.l.info("setting ymax (calc) to %s" % self.maxY)
-
 
         self.YCorrPerBand = 2 * self.maxY
 
