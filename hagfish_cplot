@@ -95,7 +95,7 @@ class plotter(hagfishPlotBand):
                 )
             l.debug("Plotting score: min %s, max %s" % (np.min(score), np.max(score)))
 
-            self.ax.plot(self.locx, score + yc, color='#FF6F00', linewidth=2)
+            self.ax.plot(self.locx, score + yc, color='black', linewidth=2)
 
         if self.band > 0:
             self.ax.axhline(
