@@ -97,6 +97,12 @@ class plotter(hagfishPlotBand):
 
             self.ax.plot(self.locx, score + yc, color='#FF6F00', linewidth=2)
 
+        if self.band > 0:
+            self.ax.axhline(
+                self.yCorrection + self.plot.maxY, linewidth=3,
+                alpha=0.3, color=COLDARKYELLOW)
+            
+
         
     def setYticks2(self):
         
