@@ -6,6 +6,7 @@
 #
 
 import os
+import re
 import sys
 import pickle
 
@@ -113,19 +114,32 @@ def getSequenceInfo(inputFile):
 
     # nope, use samtools, be patient
     l.debug("start reading sequence info")
+    sqidfinder = re.compile('SN:(\w+)', re.I)
+    sqlnfinder = re.compile('LN:(\d+)', re.I)
     for line in runReturn('samtools view -H %s' % inputFile):
         line = line.strip()
         if not line: continue
-        if line[:3] == '@SQ':
-            ls = line.split()
-            seqId = ls[1][3:]
-            seqLen = int(ls[2][3:])
+        if line[:3].upper() == '@SQ':
+            findsqid = sqidfinder.search(line)
+            findsqln = sqlnfinder.search(line)
+
+            if not findsqid and not findsqln:
+                l.critical("Problem parsing seq info line")
+                l.critical("%s %s" % (findsqid, findsqln))
+                l.critical(line)
+                
+                sys.exit()
+            
+            seqId = findsqid.groups()[0]
+            seqLen = int(findsqln.groups()[0])
+
             if not seqInfo.has_key(seqId):
                 seqInfo[seqId] = { 'length' : seqLen }
             else:
-                if seqInfo[seqId]['length'] != seqLen:
-                    raise(Exception("problem with seqlen"))
-                #seqInfo[seqId]['seenIn'].append(inputFile)
+                l.critical("Duplicate sequence identifier")
+                l.critical(line)
+                sys.exit()
+
 
     #write a seqinfo file to disk - for a later call
     with open(seqInfoFile, 'w') as F:
