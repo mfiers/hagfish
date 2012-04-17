@@ -56,14 +56,14 @@ class plotter(hagfishPlotBand):
             self.locx,
             np.minimum(self.bandTop, self.okh + yc),
             np.minimum(self.bandTop, self.okh + self.high + yc),
-            zorder = 1,
+            zorder = 1, linewidth=0, alpha=1,
             color=COLDARKRED)
         #print 'ok'
         self.ax.fill_between(
             self.locx,
             np.minimum(self.bandTop, self.okh + yc),
             np.maximum(self.bandBottom, -self.okh + yc),
-            color=COLDARKGREEN,
+            color=COLDARKGREEN,  linewidth=0, alpha=1,
             zorder=1)
 
         #low
@@ -71,36 +71,21 @@ class plotter(hagfishPlotBand):
             self.locx,
             np.maximum(self.bandBottom, -self.okh + yc),
             np.maximum(self.bandBottom, -(self.okh + self.low) + yc),
-            color=COLDARKBLUE,
+            color=COLDARKBLUE,  linewidth=0, alpha=1,
             zorder=1)
 
-
-        #ok_ends
-        # self.ax.fill_between(
-        #     self.locx,
-        #     np.minimum(self.bandTop, self.okh_ends + yc),
-        #     np.maximum(self.bandBottom, -self.okh_ends + yc),
-        #     color=COLDARKGREEN,
-        #     zorder=1)
-
-        # #print 'high'
-        # self.ax.fill_between(
-        #     self.locx,
-        #     np.minimum(self.bandTop, self.okh_ends + yc),
-        #     np.minimum(self.bandTop, self.okh_ends + self.high_ends + yc),
-        #     zorder = 1,
-        #     color=COLDARKRED)
-
-
-
         if self.__dict__.has_key('nns'):
-            self.l.debug("plotting N band")
+            self.l.info("plotting N band")
+            self.l.info("maxY %s" % self.plot.maxY)
+            self.l.info("max min nns %s %s " % (np.max(self.nns), np.min(self.nns)))
+            self.l.info("bandbot, bandtop %s %s " % (self.bandBottom, self.bandTop))
+
             self.ax.fill_between(
                 self.locx,
-                self.zero + yc + (self.plot.maxY * self.nns),
-                self.zero + yc - (self.plot.maxY * self.nns),
-                color=COLLIGHTYELLOW, alpha=0.6)
-
+                yc + (self.plot.maxY * self.nns),
+                yc - (self.plot.maxY * self.nns),
+                linewidth=0, zorder=0,
+                color=COLLIGHTYELLOW)
 
 
         if options.score:
