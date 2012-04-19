@@ -7,6 +7,7 @@ import math
 import numpy as np
 import matplotlib as mpl
 mpl.use('agg')
+
 import matplotlib.pyplot as plt
 import matplotlib.mlab as mlab
 import matplotlib as mpl
@@ -63,16 +64,28 @@ class plotter(hagfishPlotBand):
             extent=[0 , len(self.locx),
                     self.bandBottom + spacer, self.bandTop]
             )
+
+        if self.__dict__.has_key('nns'):
+            self.ax.fill_between(
+                self.locx,
+                yc + (self.plot.maxY * self.nns * 0.25),
+                yc - (self.plot.maxY * self.nns * 0.25),
+                linewidth=0, zorder=0,
+                color=COLLIGHTYELLOW)
+
         
     def setYticks2(self):
         pass
 
 plot.plotBands(plotter)
 #l.info("attempt colorbar")
-plt.colorbar(plot.lastBar, ax=plot.ax, orientation="horizontal", format="%s",
-             ticks=[1, 0, -1],
-             aspect=80,
-             pad=0.3,
+
+plt.subplots_adjust(left=0.01, right=0.99, top=0.99, bottom=0.01)
+
+#cbax = plot.add_axes((0.8,0.1,0.2, 0.9)
+l.info('plotting colorbar')
+plt.colorbar(plot.lastBar, ax=plot.ax, orientation="vertical", format="%s",
+             ticks=[1, 0, -1], pad = 0.01, fraction=0.04,
              )
 
 plot.save(tag='block')

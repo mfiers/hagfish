@@ -50,7 +50,7 @@ COLLIGHTPURPLE = '#963FD5'
 
 COLMAP1 = mpl.colors.LinearSegmentedColormap.from_list(
     'COLMAP1', 
-    [COLOR6, COLOR3, COLOR7], N=200)
+    [COLLIGHTPURPLE, COLLIGHTRED , 'black', COLDARKGREEN, COLLIGHTGREEN ], N=200)
 
 
 ################################################################################
@@ -358,10 +358,12 @@ class hagfishPlot:
         if tag:
             outFileName += '_%s' % tag
             
+        #plt.subplots_adjust(left=0.01, right=0.99, top=0.99, bottom=0.01)
 
         for f in self.options.format:
             self.l.info("writing to %s.%s" % (outFileName, f))
-            plt.savefig('%s.%s' % (outFileName, f), dpi=self.options.dpi)
+            plt.savefig('%s.%s' % (outFileName, f), dpi=self.options.dpi, 
+                        bbox_inches='tight')
 
 
 class Dummy:
