@@ -75,7 +75,7 @@ if __name__ == '__main__':
             file_base = os.path.join('coverage', inputDir, seqId + '.coverage')
             bamBase = inputDir
 
-            l.info("processing %s (%s)" % (bamBase, file_base))
+            l.debug("processing %s (%s)" % (bamBase, file_base))
 
             try:
                 d_ok = np_load(file_base, 'r_ok')
@@ -89,8 +89,9 @@ if __name__ == '__main__':
                 #ignore if we can't load this file...
                 #possibly it was empty
                 continue
-            
+
             if r_ok == None:
+
                 r_ok = d_ok
                 r_high = d_high
                 r_low = d_low
@@ -107,11 +108,11 @@ if __name__ == '__main__':
                 r_high_ends += d_high_ends
                 r_low_ends += d_low_ends
 
-
-        if (r_ok == None) or (np.max(r_ok) == 0):
-            no_seqs_without_coverage += 1
-        else:
-            l.debug("writing combined data for %s" % seqId)
+        if r_ok != None:
+            l.info("Processed %s ln %d min/max for ok:%d/%d low:%d/%d high: %d/%d" % (
+                    bamBase, len(d_ok), max(d_ok), min(d_ok),
+                    max(d_low), min(d_low), max(d_high),
+                    min(d_high)))
             np_savez(os.path.join('combined', seqId),
                      r_ok = r_ok,
                      r_high = r_high,
@@ -120,5 +121,8 @@ if __name__ == '__main__':
                      r_ok_ends = r_ok_ends,
                      r_high_ends = r_high_ends,
                      r_low_ends = r_low_ends)
-               
+        else:
+            l.info("PROBLEM - FOUND NOTHING FOR %s" % bamBase)
+            no_seqs_without_coverage += 1
+
     l.info("ignored %d sequences (no coverage??)" % no_seqs_without_coverage)
