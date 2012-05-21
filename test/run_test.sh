@@ -23,7 +23,7 @@ hagfish_coverage_combine -v
 hagfish_gapfinder -v -f ../test.fasta 
 
 echo 'and plot'
-hagfish_cplot2 --ymax 200 -n 2e4 contig
+hagfish_cplot2 --ymax 400 -n 2e4 contig
 hagfish_blockplot -n 2e4 contig
 
 
