@@ -96,24 +96,6 @@ class plotter(hagfishPlotBand):
             zorder=10, color=COLDARKRED, linewidth=0)
 
 
-        #ok_ends
-        # self.ax.fill_between(
-        #     self.locx,
-        #     np.minimum(self.bandTop, self.okh_ends + yc),
-        #     np.maximum(self.bandBottom, -self.okh_ends + yc),
-        #     color=COLDARKGREEN,
-        #     zorder=1)
-
-        # #print 'high'
-        # self.ax.fill_between(
-        #     self.locx,
-        #     np.minimum(self.bandTop, self.okh_ends + yc),
-        #     np.minimum(self.bandTop, self.okh_ends + self.high_ends + yc),
-        #     zorder = 1,
-        #     color=COLDARKRED)
-
-
-
         if self.__dict__.has_key('nns'):
             self.l.info("plotting N band")
             self.l.info("maxY %s" % self.plot.maxY)
@@ -126,7 +108,6 @@ class plotter(hagfishPlotBand):
                 yc - (self.plot.maxY * self.nns),
                 linewidth=0,
                 color=COLLIGHTYELLOW)
-
 
         if options.score:
             score = self.data.medianH * (
