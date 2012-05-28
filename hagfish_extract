@@ -99,8 +99,6 @@ def getSequenceInfo(inputFile):
 
     seqInfo = {}
     l.debug("get sequence info from %s" % inputFile)
-    
-
     bamBase = os.path.basename(inputFile).replace('.bam', '')
     seqInfoFile = os.path.join('seqInfo', '%s.seqinfo' % bamBase)
 
@@ -114,7 +112,7 @@ def getSequenceInfo(inputFile):
 
     # nope, use samtools, be patient
     l.debug("start reading sequence info")
-    sqidfinder = re.compile('SN:(\w+)', re.I)
+    sqidfinder = re.compile('SN:(\S+)', re.I)
     sqlnfinder = re.compile('LN:(\d+)', re.I)
     for line in runReturn('samtools view -H %s' % inputFile):
         line = line.strip()
