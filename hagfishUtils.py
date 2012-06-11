@@ -271,7 +271,7 @@ class hagfishPlot:
             self.minY = -self.maxY
         elif options.ymax:
             self.l.info("setting ymax (--ymax) to %s" % options.ymax)
-            self.maxY = int(options.ymax)
+            self.maxY = int(options.ymax) / 2
             self.minY = -self.maxY
         else:
             self.maxY = int(quant(self.data.okh, options.yfrac))

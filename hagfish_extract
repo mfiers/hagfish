@@ -28,6 +28,8 @@ from hagfish_file_util import *
 parser = optparse.OptionParser()
 parser.add_option('-v', dest='verbose', action="count", 
                   help='Show debug information')
+parser.add_option('-S', dest='SAM', action="store_true", default=False,
+                  help='Input is SAM')
 parser.add_option('-x', dest='limit', type="int",
                   help='Limit the number of pairs to read per input file')
 parser.add_option('--onlySeqInfo', dest='onlySeqInfo', action='store_true',
@@ -114,7 +116,13 @@ def getSequenceInfo(inputFile):
     l.debug("start reading sequence info")
     sqidfinder = re.compile('SN:(\S+)', re.I)
     sqlnfinder = re.compile('LN:(\d+)', re.I)
-    for line in runReturn('samtools view -H %s' % inputFile):
+    
+    if options.SAM:
+        cl = 'samtools view -S -H %s' % inputFile
+    else:
+        cl = 'samtools view -H %s' % inputFile
+
+    for line in runReturn(cl):
         line = line.strip()
         if not line: continue
         if line[:3].upper() == '@SQ':
@@ -147,7 +155,12 @@ def getSequenceInfo(inputFile):
     
 def readBAM(fileName):
     i = 0
-    p = run("samtools view -f 67 %s" % fileName)
+    if options.SAM:
+        cl = "samtools view -S -f 67 %s" % fileName
+    else:
+        cl = "samtools view -f 67 %s" % fileName
+
+    p = run(cl)
     while True:
         line = p.stdout.readline()
         if not line: break

@@ -152,7 +152,8 @@ if __name__ == '__main__':
     #determine what the bins are
     maxx = max(max(cum_r_ok), max(cum_r_high), max(cum_r_low))
     maxx = 1500 * ( ( maxx / 1000 ) + 1 )             
-    bins =  np.array([0,1,2,3,4] + range(5, maxx))
+    
+    bins =  np.array([0,1,2,3,4] + range(5, int(maxx)))
     
 
     rBins = np.array([0,1,10,20,30,40,50,100,int(10e9)])
