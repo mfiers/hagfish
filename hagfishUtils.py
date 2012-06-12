@@ -196,7 +196,6 @@ class hagfishData:
             lib2load = options.library
 
         if lib2load:
-            print 'loading %s' % lib2load
             for i, lib in enumerate(lib2load):
                 self.l.info("Loading library %s" % lib)
                 file_base= os.path.join(
