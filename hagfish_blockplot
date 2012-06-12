@@ -39,7 +39,7 @@ l.info("starting %s" % sys.argv[0])
 data = hagfishData(options, args)
 
 #prepare the plot
-plot = hagfishPlot(options, data)
+plot = hagfishPlot(options, data, tag='block')
 
 class plotter(hagfishPlotBand):
     
@@ -54,6 +54,7 @@ class plotter(hagfishPlotBand):
         self.l.debug("score min %s max %s" % (np.min(score), np.max(score)))
 
         spacer = (self.bandTop - self.bandBottom) / 20.0
+        
         self.plot.lastBar = self.ax.imshow(
             [score],
             cmap=COLMAP1,
@@ -66,11 +67,17 @@ class plotter(hagfishPlotBand):
             )
 
         if self.__dict__.has_key('nns'):
+            self.l.info("plotting N band")
+            self.l.info("maxY %s" % self.plot.maxY)
+            self.l.info("max min nns %s %s " % (np.max(self.nns), np.min(self.nns)))
+            self.l.info("bandbot, bandtop %s %s " % (self.bandBottom, self.bandTop))
+
+
             self.ax.fill_between(
                 self.locx,
                 yc + (self.plot.maxY * self.nns * 0.25),
                 yc - (self.plot.maxY * self.nns * 0.25),
-                linewidth=0, zorder=0,
+                linewidth=0, zorder=220,
                 color=COLLIGHTYELLOW)
 
         
@@ -85,9 +92,9 @@ plt.subplots_adjust(left=0.01, right=0.99, top=0.99, bottom=0.01)
 #cbax = plot.add_axes((0.8,0.1,0.2, 0.9)
 l.info('plotting colorbar')
 plt.colorbar(plot.lastBar, ax=plot.ax, orientation="vertical", format="%s",
-             ticks=[1, 0, -1], pad = 0.01, fraction=0.04,
+             ticks=[1, 0, -1], pad = 0.05, fraction=0.05, aspect=10,
              )
 
-plot.save(tag='block')
+plot.save()
 
  
