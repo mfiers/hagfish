@@ -39,7 +39,7 @@ l.info("starting %s" % sys.argv[0])
 data = hagfishData(options, args)
 
 #prepare the plot
-plot = hagfishPlot(options, data)
+plot = hagfishPlot(options, data, tag='cplot2')
 
 PLOTHIGH = True
 PLOTOK = True
