@@ -48,15 +48,15 @@ ymax = max(ym1, ym2)
 if options.ymax:
     ymax = float(options.ymax)
 
-l.critical('y1 %s %s' % (ym1, data.median))
-l.critical('y2 %s %s' % (ym2, data2.median))
-l.critical('ym %s' % (ymax))
+l.debug('y1 %s %s' % (ym1, data.median))
+l.debug('y2 %s %s' % (ym2, data2.median))
+l.debug('ym %s' % (ymax))
 
 title1 = "_".join(options.library)
 title2 = "_".join(options.library2)
 
 plot = hagfishPlot(
-    options, data, 
+    options, data, tag='compplot2', 
     data2=data2, ymax = ymax,
     title='comparative plot %s vs %s' % (title1, title2))
 
@@ -137,7 +137,7 @@ class plotter(hagfishPlotBand):
                 self.locx,
                 yc + (self.plot.maxY * self.nns),
                 yc - (self.plot.maxY * self.nns),
-                linewidth=0,
+                linewidth=0, zorder=-10,
                 color=COLLIGHTYELLOW)
 
 
@@ -163,6 +163,12 @@ class plotter(hagfishPlotBand):
                      verticalalignment='center',
                      bbox=dict(facecolor='white', alpha=0.6, zorder=20),
                      )
+
+
+        if self.band > 0:
+            self.ax.axhline(
+                self.yCorrection + self.plot.maxY, linewidth=3,
+                alpha=0.7, color=COLDARKYELLOW, zorder=1000)
 
 
         
