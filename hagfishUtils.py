@@ -50,7 +50,13 @@ COLLIGHTPURPLE = '#963FD5'
 
 COLMAP1 = mpl.colors.LinearSegmentedColormap.from_list(
     'COLMAP1', 
-    [COLLIGHTPURPLE, COLLIGHTRED , 'black', COLDARKGREEN, COLLIGHTGREEN ], N=200)
+    [COLLIGHTPURPLE, COLLIGHTRED , COLLIGHTRED ,
+     'black', COLDARKGREEN, COLDARKGREEN,
+     COLLIGHTGREEN ], N=200)
+
+COLMAP2 = mpl.colors.LinearSegmentedColormap.from_list(
+    'COLMAP1', 
+    [COLLIGHTRED , COLDARKRED, 'black', COLDARKGREEN, COLLIGHTGREEN ], N=200)
 
 
 ################################################################################
@@ -241,7 +247,9 @@ class hagfishData:
 
 class hagfishPlot:
 
-    def __init__(self, options, data, title=None, data2=None, ymax=None):
+    def __init__(self, options, data, title=None, data2=None, ymax=None, tag=""):
+        
+        self.tag = tag
         self.l = getLogger('plot', options.verbose)
         self.options = options
 
@@ -336,12 +344,18 @@ class hagfishPlot:
         self.ax = self.fig.add_axes(self.axCoords)
 
         if not title:
-            if self.start == 0:
-                self.ax.set_title('Coverage plot for "%s" (0 to %.2e)' % (
-                    self.data.seqId, self.stop))
+            if self.tag:
+                title = '%s plot "%s"' % (self.tag, self.data.seqId)
             else:
-                self.ax.set_title('Coverage plot for "%s" (%.2e to %.2e)' % (
-                    self.data.seqId, self.start, self.stop))
+                title = '"%s"' % self.data.seqId
+            if options.library:
+                title += " (%s)" % ", ".join(options.library)
+            if self.start == 0:
+                title += " (0 to %.2e)" % (self.stop)
+            else:
+                title += " (%.2e to %.2e)" % (self.start, self.stop)
+
+            self.ax.set_title(title)
         else:
             self.ax.set_title(title)
 
@@ -377,6 +391,14 @@ class hagfishPlot:
         y2.set_ylim(self.tminY,self.tmaxY)
 
     def save(self, tag=""):
+
+        if tag:
+            usetag = tag
+        elif self.tag:
+            usetag = self.tag
+        else:
+            usetag = ""
+
         self.ax.set_xlim(0, self.ntPerBand)
 
         if self.options.outfile:            
@@ -387,8 +409,10 @@ class hagfishPlot:
         if self.options.start or self.options.stop:
             outFileName += "_%d_%d" % (self.start, self.stop)
 
-        if tag:
-            outFileName += '_%s' % tag
+        if self.options.library:
+            outFileName += '_%s' % "".join(self.options.library)
+        if usetag:
+            outFileName += '_%s' % usetag
             
         #plt.subplots_adjust(left=0.01, right=0.99, top=0.99, bottom=0.01)
 
