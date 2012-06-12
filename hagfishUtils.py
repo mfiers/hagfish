@@ -101,6 +101,9 @@ def addBasePlotParameters(parser):
     parser.add_option('-e', dest='stop',
                       help='Stop position (nt) of the plot')
 
+    parser.add_option('-l', dest='library', action='append',
+                      help='Library to load - omit to load all')
+
     parser.add_option('-o', dest='outfile',
                       help='Output file name')
 
@@ -131,9 +134,38 @@ def addPlotParameters(parser):
 def addBinPlotParameters(parser):
     addBasePlotParameters(parser)
 
+
+def loadLib(o, base, vectors):
+    l.info('loading library from %s' % base)
+    
+    for vc in vectors:
+        d = np_load(base, 'r_' + vc)
+        if not o.__dict__.has_key(vc):
+            o.__dict__[vc] = d
+            o.data[vc] = o.__dict__[vc]
+        else:
+            o.__dict__[vc] += d
+
+
+    # self.ok = np_load(file_base, 'r_ok')
+    # self.high = np_load(file_base, 'r_high')
+    # self.low = np_load(file_base, 'r_low')
+    
+    # self.ok_ends = np_load(file_base, 'r_ok_ends')
+    # self.high_ends = np_load(file_base, 'r_high_ends')
+    # self.low_ends = np_load(file_base, 'r_low_ends')
+    
+    # self.data['ok'] = self.ok
+    # self.data['low'] = self.low
+    # self.data['high'] = self.high
+    
+    # self.data['ok_ends'] = self.ok_ends
+    # self.data['low_ends'] = self.low_ends
+    # self.data['high_ends'] = self.high_ends
+
 class hagfishData:
     
-    def __init__(self, options, args, seqId = None, inputFile=None):
+    def __init__(self, options, args, seqId = None, inputFile=None, libraries=None):
 
         if seqId:
             self.seqId = seqId
@@ -145,32 +177,32 @@ class hagfishData:
         self.l = getLogger('data', options.verbose)
         self.l.info("Loading sequence: %s" % self.seqId)
 
-        file_base = os.path.join(
-            'combined', 
-            '%s' % self.seqId)
-
-        self.l.info('loading from %s' % file_base)
         self.vectors = ['ok', 'high', 'low', 
                         'ok_ends', 'high_ends', 'low_ends']
-        
+
         #self.data = np.load(self.inputFile)
         self.data = {}
 
-        self.ok = np_load(file_base, 'r_ok')
-        self.high = np_load(file_base, 'r_high')
-        self.low = np_load(file_base, 'r_low')
-        
-        self.ok_ends = np_load(file_base, 'r_ok_ends')
-        self.high_ends = np_load(file_base, 'r_high_ends')
-        self.low_ends = np_load(file_base, 'r_low_ends')
+        lib2load = []
+        if libraries:
+            lib2load = libraries
+        elif options.library:
+            lib2load = options.library
 
-        self.data['ok'] = self.ok
-        self.data['low'] = self.low
-        self.data['high'] = self.high
-        
-        self.data['ok_ends'] = self.ok_ends
-        self.data['low_ends'] = self.low_ends
-        self.data['high_ends'] = self.high_ends
+        if lib2load:
+            print 'loading %s' % lib2load
+            for i, lib in enumerate(lib2load):
+                self.l.info("Loading library %s" % lib)
+                file_base= os.path.join(
+                    'coverage', lib, 
+                    '%s.coverage' % self.seqId)
+                loadLib(self, file_base, self.vectors)
+        else:
+            self.l.info("Loading combined library")
+            file_base = os.path.join(
+                'combined', 
+                '%s' % self.seqId)
+            loadLib(self, file_base, self.vectors)
 
         #see if there is gapdata to load
         gapbase = os.path.join('gaps', self.seqId)

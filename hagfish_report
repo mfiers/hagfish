@@ -30,6 +30,12 @@ parser.add_option('-v', dest='verbose', action="count",
 parser.add_option('--csc', dest='cum_seqlen_cutoff', type='int',
                   default=10000, help='cutoff for seq lenght in calculating ' + 
                   'cumulative stats - ignore seqs shorter than this')
+parser.set_defaults(format=['png'], dpi=100)
+parser.add_option('--dpi', dest='dpi', type='int',
+                  help='dpi of the image, pixel calculations are based on ' +
+                  'dpi 100, setting dpi to 200 will double the x/y pixel ' +
+                  'size of your image)')
+
 options, args = parser.parse_args()
 
 l = logging.getLogger('hagfish')
@@ -201,7 +207,8 @@ if __name__ == '__main__':
         ax.set_ylabel('density')
         #ax.set_yscale('log')        
         #ax.set_xscale('log')
-        plt.savefig(os.path.join('report', 'score.density.png'))
+        plt.savefig(os.path.join('report', 'score.density.png'),
+                    dpi=options.dpi)
 
     #  #print normal plot
     # fig = plt.figure()                
@@ -249,7 +256,8 @@ if __name__ == '__main__':
     ax.hlines(seqLen, minX, maxX, linestyles='solid',
               linewidth=1, colors="black",
               label='Sequence length (%d)' % seqLen)
-    plt.savefig(os.path.join('report', 'coverage.png'))
+    plt.savefig(os.path.join('report', 'coverage.png'),
+                    dpi=options.dpi)
 
 
     #print cumulative coverage distribution plot
@@ -303,7 +311,8 @@ if __name__ == '__main__':
 
     ax.set_xscale('log')
     ax.set_xlim(1, 1000)
-    plt.savefig(os.path.join('report', 'cumul.coverage.png'))
+    plt.savefig(os.path.join('report', 'cumul.coverage.png'),
+                    dpi=options.dpi)
 
     #generate text reports
     report_file = os.path.join('report', 'report')
