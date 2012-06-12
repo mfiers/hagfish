@@ -39,7 +39,7 @@ l.info("starting %s" % sys.argv[0])
 data = hagfishData(options, args)
 
 #prepare the plot
-plot = hagfishPlot(options, data)
+plot = hagfishPlot(options, data, tag='cplot')
 
 PLOTHIGH = True
 PLOTOK = True
@@ -122,6 +122,6 @@ class plotter(hagfishPlotBand):
             color='black')
         
 plot.plotBands(plotter)
-plot.save(tag='cbin')
+plot.save()
 
  
