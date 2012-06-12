@@ -101,8 +101,6 @@ def getSequenceInfo(inputFile):
 
     seqInfo = {}
     l.debug("get sequence info from %s" % inputFile)
-    
-
     bamBase = os.path.basename(inputFile).replace('.bam', '').replace('.sam', '')
     seqInfoFile = os.path.join('seqInfo', '%s.seqinfo' % bamBase)
 
