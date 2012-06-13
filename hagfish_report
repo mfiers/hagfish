@@ -20,6 +20,7 @@ except ImportError:
 import logging
 import optparse
 
+import hagfishUtils as hu
 from hagfish_file_util import *
 
 ## Arguments: General options 
@@ -57,7 +58,7 @@ else:
     l.setLevel(logging.WARNING)
 
 if not SCIPY:
-    l.warning("Cannot load scipy - no density plots!")
+    l.warning("Cannot load scipy - no density plots, no smooth lines")
 
 if __name__ == '__main__':
     
@@ -100,8 +101,16 @@ if __name__ == '__main__':
     seqCount =  0
     totalSeqLen = 0
     foundBins = False
-    for seqId in seqs_to_parse:
 
+    #see if there is gapdata to load
+    if os.path.exists('gaps'):
+        GAP = True
+        nons = 0
+    else:
+        GAP = False
+
+    for seqId in seqs_to_parse:
+        
         seqCount += 1
 
         seqLen = seqInfo[seqId]['length']
@@ -111,7 +120,9 @@ if __name__ == '__main__':
 
         #read the coverage plots
         file_base = os.path.join('combined', seqId)
-        
+        gap_base = os.path.join('gaps', seqId)
+
+            
         try:
             r_ok = np_load(file_base, 'r_ok')
             r_high = np_load(file_base, 'r_high')
@@ -120,9 +131,15 @@ if __name__ == '__main__':
             r_ok_ends = np_load(file_base, 'r_ok_ends')
             r_high_ends = np_load(file_base, 'r_high_ends')
             r_low_ends = np_load(file_base, 'r_low_ends')
+            if GAP:
+                nons += len(np.flatnonzero(np_load(gap_base, 'nns')))
+
         except IOError:
             l.critical("skipping %s - no data" % seqId)
             continue
+        
+        if GAP:
+            l.info('found %d NNNs' % nons)
 
         #add to the cumulative plot
         if seqLen >= options.cum_seqlen_cutoff: 
@@ -132,7 +149,6 @@ if __name__ == '__main__':
             cum_r_ok_ends = np.concatenate((cum_r_ok_ends, r_ok_ends))
             cum_r_high_ends = np.concatenate((cum_r_high_ends, r_high_ends))
             cum_r_low_ends = np.concatenate((cum_r_low_ends, r_low_ends))
-
 
     seqLen = totalSeqLen
 
@@ -159,20 +175,13 @@ if __name__ == '__main__':
     maxx = max(max(cum_r_ok), max(cum_r_high), max(cum_r_low))
     maxx = 1500 * ( ( maxx / 1000 ) + 1 )             
     
-    bins =  np.array([0,1,2,3,4] + range(5, int(maxx)))
-    
-
+    #bins =  np.array([0,1,2,3,4] + range(5, int(maxx)))
+    bins = np.array([x**1.5 for x in range(100)])
+    bins = np.array(range(1000))
     rBins = np.array([0,1,10,20,30,40,50,100,int(10e9)])
     
     no_score_bins = 100
     score_bins = (np.array(range(0,no_score_bins+1)) / (no_score_bins / 2.)) - 1
-    
-    if SCIPY:
-        ke = scipy.stats.gaussian_kde(score)
-        score_density = ke.evaluate(score_bins)
-
-    #l.debug("score histogram edges %s " % score_edges)
-    #l.debug("score histogram %s " % score_hist)
 
     l.debug("Bins %s" % bins)
     ok_hist, oe = np.histogram(cum_r_ok, bins = bins)
@@ -196,36 +205,6 @@ if __name__ == '__main__':
 
     rep_hist_edges = roee
 
-    #print score plot
-    if SCIPY:
-        fig = plt.figure()
-        plt.title("Score density distribution",
-                  fontdict={'size' : 10})
-        ax = fig.add_subplot(111)
-        ax.plot(score_bins, score_density)
-        ax.set_xlabel('score')
-        ax.set_ylabel('density')
-        #ax.set_yscale('log')        
-        #ax.set_xscale('log')
-        plt.savefig(os.path.join('report', 'score.density.png'),
-                    dpi=options.dpi)
-
-    #  #print normal plot
-    # fig = plt.figure()                
-    # ax = fig.add_subplot(111)
-    # plt.title('Coverage distribution for sequence',
-    #           fontdict={'size' : 10})
-    # ax.set_xlabel('coverage')
-    # ax.set_ylabel('no nucleotides with coverage')        
-
-    # ax.plot((he[:-1]), (high_hist), c='#B73147',
-    #          label="long insert")
-    # ax.plot((hist_edges[:-1]), (ok_hist), c='#3BB058',
-    #         label="correct insert")
-    # ax.plot((le[:-1]), (low_hist), c='#538ABF',
-    #         label="short insert")
-
-
     #print coverage distribution plot
     fig = plt.figure()                
     ax = fig.add_subplot(111)
@@ -234,25 +213,40 @@ if __name__ == '__main__':
     ax.set_xlabel('coverage')
     ax.set_ylabel('no nucleotides with coverage')        
 
-    ax.plot((he[:-1]), (high_hist), ',-', c='#B73147',
-             label="long insert")
-    ax.plot((hist_edges[:-1]), (ok_hist), ',-', c='#3BB058',
-            label="correct insert")
-    ax.plot((le[:-1]), (low_hist), ',-', c='#538ABF',
-            label="short insert")
+    ax.plot((he[:-1]), (high_hist), '.', mfc='#B73147', mew=0,
+            alpha=0.3, label="long insert")
+    ax.plot((hist_edges[:-1]), (ok_hist), '.', mfc='#3BB058', mew=0,
+            label="correct insert", alpha=0.3)
+    ax.plot((le[:-1]), (low_hist), '.', mfc='#538ABF', mew=0,
+            label="short insert", alpha=0.3)
 
 
     minX, maxX = ax.get_axes().get_xlim()
-    #if minX < 1: minX = 0
-    #minX = 0
-
+    minY, maxY = ax.get_axes().get_ylim()
+    ax.get_axes().set_ylim([10, maxY])
+    
     ax.hlines(seqLen, minX, maxX, linestyles='solid',
               linewidth=1, colors="black",
               label='Sequence length (%d)' % seqLen)
     ax.legend(prop={'size' :'x-small'})
 
+    def smoother(a, steps):
+        result = np.zeros(len(a) - steps + 1)
+        for fr in range(steps):
+            to = - (steps - fr - 1)
+            if to == 0: to = None
+            result += a[fr:to]        
+        return result / float(steps)
+
+    smooth_step = 5
+    smthok = smoother(ok_hist, smooth_step)
+    smthlow =  smoother(low_hist, smooth_step)
+    smthhigh = smoother(high_hist, smooth_step)
+    plt.plot(hist_edges[:-smooth_step], smthok, '#3BB058')
+    plt.plot(hist_edges[:-smooth_step], smthlow, '#538ABF')
+    plt.plot(hist_edges[:-smooth_step], smthhigh, '#B73147')
     ax.set_yscale('log')        
-    ax.set_xscale('log')
+
     ax.hlines(seqLen, minX, maxX, linestyles='solid',
               linewidth=1, colors="black",
               label='Sequence length (%d)' % seqLen)
@@ -279,6 +273,11 @@ if __name__ == '__main__':
     cp_low_hist_ends = np.cumsum(low_hist_ends[1:][::-1])[::-1] / float(seqLen)
 
 
+    if GAP:
+        gapfrac = 1 - (nons / float(seqLen))
+        print gapfrac
+        ax.axhspan(gapfrac, 1, facecolor=hu.COLLIGHTYELLOW)
+
     ax.fill_between(he[1:-1],
                     cp_high_hist_ends, cp_high_hist,
                     color='#B73147', alpha=0.3)
@@ -289,15 +288,6 @@ if __name__ == '__main__':
                     cp_low_hist_ends, cp_low_hist,
                     color='#538ABF', alpha=0.3)
 
-    #ax.fill_between(he[:-1], hoe, ho, color='#3BB058', alpha=0.4)
-    #ax.fill_between(he[:-1], hle, hl, color='#538ABF', alpha=0.4)
-
-    #ax.plot((he[1:-1]), cp_high_hist, '-', c='#B73147',
-    #        label="long insert")
-    #ax.plot((he[:-1]), ho, '-', c='#3BB058',
-    #        label="correct insert")
-    #ax.plot((he[:-1]), hl, '-', c='#538ABF',
-    #        label="short insert")
 
     ax.plot((he[1:-1]), cp_high_hist_ends, '-', c='#B73147',
               label="long insert")
