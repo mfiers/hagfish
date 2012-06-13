@@ -389,7 +389,7 @@ class hagfishPlot:
         y2.get_yaxis().set_ticklabels(self.yTickLabels2)
         y2.set_ylim(self.tminY,self.tmaxY)
 
-    def save(self, tag=""):
+    def save(self, libname="", tag=""):
 
         if tag:
             usetag = tag
@@ -408,8 +408,11 @@ class hagfishPlot:
         if self.options.start or self.options.stop:
             outFileName += "_%d_%d" % (self.start, self.stop)
 
-        if self.options.library:
-            outFileName += '_%s' % "".join(self.options.library)
+        if libname:
+            outFileName += "_%s" % libname
+        elif self.options.library:
+                outFileName += '_%s' % "".join(self.options.library)
+
         if usetag:
             outFileName += '_%s' % usetag
             
