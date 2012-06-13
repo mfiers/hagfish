@@ -43,6 +43,9 @@ seqId = args[0]
 data = hagfishData(options, args)
 data2 = hagfishData(options, args, libraries=options.library2)
 
+title1 = "_".join(options.library)
+title2 = "_".join(options.library2)
+
 #prepare the plot
 plot = hagfishPlot(options, data, data2=data2, tag='blockcomp')
 
@@ -78,6 +81,22 @@ class plotter(hagfishPlotBand):
             extent=[0 , len(self.locx),
                     self.bandBottom + spacer, self.bandTop]
             )
+
+
+        if self.__dict__.has_key('nns'):
+            self.l.info("plotting N band")
+            self.l.info("maxY %s" % self.plot.maxY)
+            self.l.info("max min nns %s %s " % (np.max(self.nns), np.min(self.nns)))
+            self.l.info("bandbot, bandtop %s %s " % (self.bandBottom, self.bandTop))
+
+
+            self.ax.fill_between(
+                self.locx,
+                yc + (self.plot.maxY * self.nns * 0.25),
+                yc - (self.plot.maxY * self.nns * 0.25),
+                linewidth=0, zorder=220,
+                color=COLLIGHTYELLOW)
+
         
     def setYticks2(self):
         pass
@@ -94,6 +113,6 @@ cb.set_ticklabels(['resembles "%s"' % ", ".join(options.library) ,
                    'resembles "%s"' % ", ".join(options.library2)])
 #                    0, -1],
 #3             aspect=80,
-plot.save()
+plot.save(libname='%s.%s' % (title1,title2))
 
  

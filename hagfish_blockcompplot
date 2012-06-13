@@ -25,6 +25,10 @@ parser.remove_option('-Y')
 parser.remove_option('--ymax')
 parser.remove_option('-Q')
 
+
+parser.add_option('-L', dest='library2', action='append',
+                  help='Library to compare to')
+
 options, args = parser.parse_args()
 
 options.ymax = 2
@@ -36,21 +40,10 @@ l.info("starting %s" % sys.argv[0])
     
 seqId = args[0]
 
-indir1 = args[1]
-indir2 = args[2]
-
-infile1 = os.path.join(
-    indir1, 'combined', 
-    '%s.combined.coverage.npz' % seqId)
-l.info("input file 1: %s" % infile1)
-infile2 = os.path.join(
-    indir2, 'combined', 
-    '%s.combined.coverage.npz' % seqId)
-l.info("input file 2: %s" % infile2)
 
 #load the coverage plots
-data = hagfishData(options, args, inputFile = infile1)
-data2 = hagfishData(options, args, inputFile = infile2)
+data = hagfishData(options, args)
+data2 = hagfishData(options, args, libraries=options.library2)
 
 #prepare the plot
 plot = hagfishPlot(options, data, data2=data2)

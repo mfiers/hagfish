@@ -173,22 +173,22 @@ class plotter(hagfishPlotBand):
 
         
     def setYticks2(self):
-        self.plot.yTicks2.append(self.yCorrection - self.data.medianH)
+        self.plot.yTicks2.append(self.yCorrection - self.data.median)
         self.plot.yTicks2.append(self.yCorrection)
-        self.plot.yTicks2.append(self.yCorrection + self.data.medianH)
-        self.plot.yTickLabels2.append("%s" % -self.data.medianH)
+        self.plot.yTicks2.append(self.yCorrection + self.data.median)
+        self.plot.yTickLabels2.append("%s" % -self.data.median)
         self.plot.yTickLabels2.append("0")
-        self.plot.yTickLabels2.append("%s" % self.data.medianH)
+        self.plot.yTickLabels2.append("%s" % self.data.median)
         self.ax.axhline(
-            self.yCorrection - self.data.medianH,
+            self.yCorrection - self.data.median,
             alpha=0.3,
             color='black')
         self.ax.axhline(
-            self.yCorrection + self.data.medianH,
+            self.yCorrection + self.data.median,
             alpha=0.3,
             color='black')
         
 plot.plotBands(plotter)
-plot.save(tag='%s.%s.comp' % (title1,title2))
+plot.save(tag='%s.%s.compplot2' % (title1,title2))
 
  
