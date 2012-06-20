@@ -523,7 +523,7 @@ def normalizeSortReadPairs(bamBase, seqInfo, readPairs, stats):
                 r_low_ends[b1:b2] += 1
             elif dist > peakHigh:
                 dtp = (dist - peakHigh) / 100
-                l.warning("dist %d  peakhigh %d : %d" % (
+                l.debug("dist %d  peakhigh %d : %d" % (
                         dist, peakHigh, dtp))
                                 
                 r_high[a1:b2] += 1
