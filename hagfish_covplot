@@ -1,0 +1,314 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+This script resembles the hagfish_report script - but does only the
+cumulative coverage plot
+"""
+
+import os
+import sys
+import math
+import pickle
+import jinja2
+
+import numpy as np
+import matplotlib as mpl
+mpl.use('agg')
+import matplotlib.pyplot as plt
+import matplotlib.mlab as mlab
+
+try:
+    import scipy.stats
+    SCIPY = True
+except ImportError:
+    SCIPY = False
+
+import logging
+import optparse
+
+import hagfishUtils as hu
+from hagfish_file_util import *
+
+## Arguments: General options 
+parser = optparse.OptionParser()
+parser.add_option('-v', dest='verbose', action="count", 
+                  help='Show debug information')
+
+parser.set_defaults(format=['png'], dpi=100)
+parser.add_option('--dpi', dest='dpi', type='int',
+                  help='dpi of the image, pixel calculations are based on ' +
+                  'dpi 100, setting dpi to 200 will double the x/y pixel ' +
+                  'size of your image)')
+
+parser.add_option('-r', dest='region', action='append',
+                  help='dpi of the image, pixel calculations are based on ' +
+                  'dpi 100, setting dpi to 200 will double the x/y pixel ' +
+                  'size of your image)')
+
+
+parser.add_option('-X', dest='maxx', type='int',
+                  help='max coverage value to plot (on the x axis)')
+
+parser.add_option('-b', dest='base', help='basename for the plots')
+
+parser.add_option('-l', dest='library', action='append',
+                  help='Library to load - omit to load all')
+
+parser.add_option('--show_icp', dest='show_icp', action='store_true', 
+                  default=False, help='only print the "ICP" shadow')
+
+options, args = parser.parse_args()
+    
+l = logging.getLogger('hagfish')
+handler = logging.StreamHandler()
+logmark = chr(27) + '[0;37;44mHAGFISH' + \
+          chr(27) + '[0m ' 
+
+formatter = logging.Formatter(
+    logmark + '%(levelname)-6s %(message)s')
+
+handler.setFormatter(formatter)
+l.addHandler(handler)
+
+if options.verbose >= 2:
+    l.setLevel(logging.DEBUG)
+elif options.verbose == 1:
+    l.setLevel(logging.INFO)
+else:
+    l.setLevel(logging.WARNING)
+
+if not options.region:
+    l.critical("Need to specify a region to plot")
+    sys.exit(-1)
+
+if not options.base:
+    l.critical("need to provide a basename for the plots")
+    sys.exit(-1)
+
+class DUMMY:
+    pass
+
+if __name__ == '__main__':
+
+    region_data = {}
+
+    #read an arbitrary seqId file
+    for f in os.listdir('seqInfo'):
+        if '.seqinfo' in f:
+            seqInfoFile = os.path.join('seqInfo', f)
+            break
+        else:
+            l.critical("cannot find a seqInfo file")
+            sys.exit(-1)
+
+    l.info("reading %s for seqinfo" % seqInfoFile)
+    with open(seqInfoFile) as F:
+        seqInfo = pickle.load(F)
+
+    l.info("found a total of %d sequences" % len(seqInfo))
+
+
+    #see if there is gapdata to load
+    if os.path.exists('gaps'):
+        GAP = True
+        nons = 0
+    else:
+        GAP = False
+        
+    for region in options.region:
+        l.info("reading data for %s" % region)
+
+        if ':' in region:
+            seqId, coords = region.split(':', 1)
+            start, stop = map(int, coords.split('-'))
+        else:
+            seqId = region
+            start =1
+            stop = seqInfo[seqId]['length']
+
+    
+        rob = DUMMY()
+        region_data[(seqId, start, stop)] = rob
+        rob.label=region
+
+        l.info('loading sequence "%s" from "%s" to "%s"' % ( seqId, start, stop))
+
+        cum_r_ok = np.array([])
+        cum_r_ok_ends = np.array([])
+
+        gap_base = os.path.join('gaps', seqId)
+
+        cum_r_high = np.array([])
+        cum_r_low = np.array([])
+        cum_r_high_ends = np.array([])
+        cum_r_low_ends = np.array([])
+
+        #where to load from??
+        load_bases = []
+        if options.library:
+            for lib in options.library:
+                load_bases.append(
+                    os.path.join('coverage', lib, '%s.coverage' % seqId))
+        else:
+            load_bases.append(os.path.join('combined', seqId))
+
+                   
+        for file_base in load_bases:
+            r_ok = np_load(file_base, 'r_ok')[start:stop]
+            r_ok_ends = np_load(file_base, 'r_ok_ends')[start:stop]
+            cum_r_ok = np.concatenate((cum_r_ok, r_ok))
+            cum_r_ok_ends = np.concatenate((cum_r_ok_ends, r_ok_ends))
+
+            r_high = np_load(file_base, 'r_high')[start:stop]
+            r_low = np_load(file_base, 'r_low')[start:stop]
+            r_high_ends = np_load(file_base, 'r_high_ends')[start:stop]
+            r_low_ends = np_load(file_base, 'r_low_ends')[start:stop]
+            cum_r_high = np.concatenate((cum_r_high, r_high))
+            cum_r_low = np.concatenate((cum_r_low, r_low))
+            cum_r_high_ends = np.concatenate((cum_r_high_ends, r_high_ends))
+            cum_r_low_ends = np.concatenate((cum_r_low_ends, r_low_ends))
+
+        if GAP:
+            nons = len(np.flatnonzero(np_load(gap_base, 'nns')[start:stop]))
+            l.info('found %d NNNs for %s' % (nons, region))
+        else:
+            nons = None
+        
+        l.info("done loading")
+        l.info("start calculating & plotting")
+        
+        rob.cum_r_ok = cum_r_ok
+        rob.cum_r_high = cum_r_high
+        rob.cum_r_low = cum_r_low
+        rob.cum_r_ok_ends = cum_r_ok_ends
+        rob.cum_r_high_ends = cum_r_high_ends
+        rob.cum_r_low_ends = cum_r_low_ends
+        rob.nons = nons 
+        
+        rob.median_ok = np.median(cum_r_ok)
+        rob.median_avg = np.mean(cum_r_ok)
+
+        if rob.median_ok == 0: 
+            l.error("median is zero - using average :(")
+            rob.median_ok = rob.median_avg
+
+        l.info("median ok for %s is %s" % (seqId, rob.median_ok))
+        l.info("average ok for %s is %s" % (seqId, rob.median_avg))
+
+        maxx = max(max(cum_r_ok), max(cum_r_high), max(cum_r_low))
+        rob.bins = np.array(range(5000))
+        rob.rBins = np.array([0,1,10,20,30,40,50,100,int(10e9)])
+    
+        l.debug("Bins %s" % rob.bins)
+
+        rob.ok_hist, rob.oe = np.histogram(cum_r_ok, bins = rob.bins)
+        rob.ok_hist_ends, rob.oee = np.histogram(cum_r_ok_ends, bins = rob.bins)
+        rob.high_hist, rob.he = np.histogram(cum_r_high, bins = rob.bins)
+        rob.low_hist, rob.le = np.histogram(cum_r_low, bins = rob.bins)
+        rob.high_hist_ends, rob.hee = np.histogram(cum_r_high_ends, bins = rob.bins)
+        rob.low_hist_ends, rob.lee = np.histogram(cum_r_low_ends, bins = rob.bins)
+
+        rob.rep_ok_hist_ends, rob.roee = np.histogram(cum_r_ok_ends, bins = rob.rBins)
+        rob.rep_ok_hist, rob.roe = np.histogram(cum_r_ok, bins = rob.rBins)
+        rob.rep_high_hist_ends, rob.rhee = np.histogram(cum_r_high_ends, bins = rob.rBins)
+        rob.rep_low_hist_ends, rob.rlee = np.histogram(cum_r_low_ends, bins = rob.rBins)
+        rob.rep_high_hist, rob.rhe = np.histogram(cum_r_high, bins = rob.rBins)
+        rob.rep_low_hist, rob.rle = np.histogram(cum_r_low, bins = rob.rBins)
+
+        rob.hist_edges = rob.oe
+        rob.rep_hist_edges = rob.roee
+
+    smooth_step = 5
+
+    def smoother(a, steps):
+        result = np.zeros(len(a) - steps + 1)
+        for fr in range(steps):
+            to = - (steps - fr - 1)
+            if to == 0: to = None
+            result += a[fr:to]        
+        return result / float(steps)
+
+
+    #print coverage distribution plot
+    fig = plt.figure()                
+    ax = fig.add_subplot(111)
+    plt.title('Coverage distribution for sequence',
+              fontdict={'size' : 10})
+    ax.set_xlabel('coverage')
+    ax.set_ylabel('no nucleotides with coverage')        
+
+    obsmaxx = 0
+
+
+    for i, regkey in enumerate(region_data.keys()):
+        rob = region_data[regkey]
+        ax.plot((rob.hist_edges[:-1]), (rob.ok_hist), '.', mfc=hu.COLLIST[i], mew=0,
+                alpha=0.3)
+        tmaxx = rob.hist_edges[np.max(np.flatnonzero(rob.ok_hist))]
+        if tmaxx > obsmaxx: obsmaxx = tmaxx
+        smthok = smoother(rob.ok_hist, smooth_step)
+        smthok[0] = rob.ok_hist[0]
+        plt.plot(rob.hist_edges[:-smooth_step], smthok, color=hu.COLLIST[i],
+                 label=rob.label)
+        
+        ax.axhline(rob.ok_hist[0], 0, 1, ls=':',
+                   label='0 cov. %s' % rob.label,
+                   linewidth=1, color=hu.COLLIST[i])
+
+
+    minX, maxX = ax.get_axes().get_xlim()
+    minY, maxY = ax.get_axes().get_ylim()
+    ax.get_axes().set_ylim([10, maxY])
+    if options.maxx:
+        ax.get_axes().set_xlim([-10, options.maxx])
+    else:
+        ax.get_axes().set_xlim([10, obsmaxx])
+    
+    ax.legend(prop={'size' :'x-small'})
+
+    ax.set_yscale('log')        
+    plt.savefig(options.base + '.coverage.png',
+                    dpi=options.dpi)
+    
+
+    #print cumulative coverage distribution plot
+    fig = plt.figure()                
+    ax = fig.add_subplot(111)
+    plt.title('Inverse cumulative coverage',
+              fontdict={'size' : 10})
+    ax.set_xlabel('coverage')
+    ax.set_ylabel('genome fraction')        
+
+    #for i, regkey in enumerate(region_data.keys()):
+
+    for i, regkey in enumerate(region_data.keys()):
+        rob = region_data[regkey]
+        seqId, start, stop = regkey
+        seqLen = stop - start
+        cp_ok_hist = np.cumsum(rob.ok_hist[1:][::-1])[::-1] / float(seqLen)
+        cp_ok_hist_ends = np.cumsum(rob.ok_hist_ends[1:][::-1])[::-1] / float(seqLen)
+
+        if GAP:
+            gapfrac = 1 - (rob.nons / float(seqLen))
+            l.info("gap fraction %s" % gapfrac)
+
+            #ax.axhline(gapfrac, 0, 1, color=hu.COLLIST[i], ls=':',
+            #           lw=1, label="0 cov %s" % rob.label)
+
+            if options.show_icp:
+
+                ax.fill_between(rob.he[1:-1],
+                                cp_ok_hist_ends, cp_ok_hist,
+                                 color=hu.COLLIST[i], alpha=0.3,
+                                label='Ok ICP')
+
+            ax.plot((rob.he[1:-1]), cp_ok_hist_ends, '-', c=hu.COLLIST[i],
+                    label=" %s" % rob.label)
+
+    ax.legend(prop={'size' :'x-small'})
+    minX, maxX = ax.get_axes().get_xlim()
+
+    ax.set_xscale('log')
+    ax.set_xlim(1, 1000)
+    plt.savefig(options.base + '.cumul.coverage.png',
+                    dpi=options.dpi)
