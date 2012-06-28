@@ -114,7 +114,6 @@ if __name__ == '__main__':
         nons = 0
     else:
         GAP = False
-
         
     for region in options.region:
         l.info("reading data for %s" % region)
@@ -126,12 +125,25 @@ if __name__ == '__main__':
             seqId = region
             start =1
             stop = seqInfo[seqId]['length']
-
-    
+        
         rob = DUMMY()
         region_data[(seqId, start, stop)] = rob
         rob.label=region
 
+    if options.regionFile:
+        with open(options.regionFile) as F:
+            for line in F:
+                label, seqId, start, stop = line.split()
+                start = int(start)
+                stop=int(stop)
+                rob = DUMMY()
+                rob.label = label
+                region_data[(seqId, start, stop)] = rob
+
+    
+    for seqId, start, stop in region_data.keys():
+        rob = region_data[(seqId, start ,stop)]
+    
         l.info('loading sequence "%s" from "%s" to "%s"' % ( seqId, start, stop))
 
         cum_r_ok = np.array([])
