@@ -6,6 +6,7 @@ import copy
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.path as mpath
+import matplotlib.colors as mcol
 import matplotlib.patches as mpatches
 import matplotlib.mlab as mlab
 import matplotlib as mpl
@@ -48,7 +49,11 @@ COLLIGHTBLUE = '#4671D5'
 COLLIGHTYELLOW = '#FFBF40'
 COLLIGHTPURPLE = '#963FD5'
 
-COLLIST = [COLDARKGREEN, COLDARKRED, COLDARKPURPLE, COLDARKBLUE, COLDARKYELLOW]
+COLLIST = mcol.LinearSegmentedColormap.from_list('hagcolors', [COLDARKGREEN, COLDARKRED, COLDARKPURPLE, COLDARKBLUE, COLDARKYELLOW])
+
+#print dir(COLLIST)
+#print COLLIST(0.4)
+#sys.exit()
 
 COLMAP1 = mpl.colors.LinearSegmentedColormap.from_list(
     'COLMAP1', 
