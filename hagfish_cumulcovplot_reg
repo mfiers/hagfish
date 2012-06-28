@@ -43,7 +43,7 @@ parser.add_option('--dpi', dest='dpi', type='int',
 parser.add_option('-r', dest='region', action='append',
                   help='region to extract')
 
-parser.add_option('-R', dest='regionFile', 
+parser.add_option('-R', dest='regionFile', default=[],
                   help='File with regions (4 columns, name, chromosome, start, stop')
 
 parser.add_option('-X', dest='maxx', type='int',
