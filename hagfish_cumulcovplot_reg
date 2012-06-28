@@ -254,20 +254,21 @@ if __name__ == '__main__':
     obsmaxx = 0
 
 
+    no_regions = float(len(region_data.keys()))
     for i, regkey in enumerate(region_data.keys()):
         rob = region_data[regkey]
-        ax.plot((rob.hist_edges[:-1]), (rob.ok_hist), '.', mfc=hu.COLLIST[i], mew=0,
+        ax.plot((rob.hist_edges[:-1]), (rob.ok_hist), '.', mfc=hu.COLLIST(i/no_regions), mew=0,
                 alpha=0.3)
         tmaxx = rob.hist_edges[np.max(np.flatnonzero(rob.ok_hist))]
         if tmaxx > obsmaxx: obsmaxx = tmaxx
         smthok = smoother(rob.ok_hist, smooth_step)
         smthok[0] = rob.ok_hist[0]
-        plt.plot(rob.hist_edges[:-smooth_step], smthok, color=hu.COLLIST[i],
+        plt.plot(rob.hist_edges[:-smooth_step], smthok, color=hu.COLLIST(i/no_regions),
                  label=rob.label)
         
         ax.axhline(rob.ok_hist[0], 0, 1, ls=':',
                    label='0 cov. %s' % rob.label,
-                   linewidth=1, color=hu.COLLIST[i])
+                   linewidth=1, color=hu.COLLIST(i/no_regions))
 
 
     minX, maxX = ax.get_axes().get_xlim()
@@ -306,17 +307,17 @@ if __name__ == '__main__':
             gapfrac = 1 - (rob.nons / float(seqLen))
             l.info("gap fraction %s" % gapfrac)
 
-            #ax.axhline(gapfrac, 0, 1, color=hu.COLLIST[i], ls=':',
+            #ax.axhline(gapfrac, 0, 1, color=hu.COLLIST(i/no_regions), ls=':',
             #           lw=1, label="0 cov %s" % rob.label)
 
             if options.show_icp:
 
                 ax.fill_between(rob.he[1:-1],
                                 cp_ok_hist_ends, cp_ok_hist,
-                                 color=hu.COLLIST[i], alpha=0.3,
+                                 color=hu.COLLIST(i/no_regions), alpha=0.3,
                                 label='Ok ICP')
 
-            ax.plot((rob.he[1:-1]), cp_ok_hist_ends, '-', c=hu.COLLIST[i],
+            ax.plot((rob.he[1:-1]), cp_ok_hist_ends, '-', c=hu.COLLIST(i/no_regions),
                     label=" %s" % rob.label)
 
     ax.legend(prop={'size' :'x-small'})
