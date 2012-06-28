@@ -41,10 +41,10 @@ parser.add_option('--dpi', dest='dpi', type='int',
                   'size of your image)')
 
 parser.add_option('-r', dest='region', action='append',
-                  help='dpi of the image, pixel calculations are based on ' +
-                  'dpi 100, setting dpi to 200 will double the x/y pixel ' +
-                  'size of your image)')
+                  help='region to extract')
 
+parser.add_option('-R', dest='regionFile', 
+                  help='File with regions (4 columns, name, chromosome, start, stop')
 
 parser.add_option('-X', dest='maxx', type='int',
                   help='max coverage value to plot (on the x axis)')
@@ -114,6 +114,7 @@ if __name__ == '__main__':
         nons = 0
     else:
         GAP = False
+
         
     for region in options.region:
         l.info("reading data for %s" % region)
