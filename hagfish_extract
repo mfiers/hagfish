@@ -32,8 +32,15 @@ parser.add_option('-S', dest='SAM', action="store_true", default=False,
                   help='Input is SAM')
 parser.add_option('-x', dest='limit', type="int",
                   help='Limit the number of pairs to read per input file')
+
 parser.add_option('--onlySeqInfo', dest='onlySeqInfo', action='store_true',
                   help='only process the seqInfo of the first bam input file')
+
+parser.add_option('--samFlag', dest='samFlag', type='int', default=67,
+                  help='-f flag value to use with samtools - defaults ' +
+                  'to 67 to get only the properly mapped, forward reads. Note '+
+                  'that removing this flag - hagfish might count each read twice '+
+                  '(once forward, once reverse)')
 
 parser.add_option('--low', dest='oklow', type="int", default=0,
                   help='Lower "correct" insert size limit - use this to force ' +
@@ -156,10 +163,12 @@ def getSequenceInfo(inputFile):
 def readBAM(fileName):
     i = 0
     if options.SAM:
-        cl = "samtools view -S -f 67 %s" % fileName
+        cl = "samtools view -S -f %s %s" % (options.samFlag, fileName)
     else:
-        cl = "samtools view -f 67 %s" % fileName
+        cl = "samtools view -f %s %s" % (options.samFlag, fileName)
 
+    l.debug("executing samtools")
+    l.debug("   %s" % cl)
     p = run(cl)
     while True:
         line = p.stdout.readline()
