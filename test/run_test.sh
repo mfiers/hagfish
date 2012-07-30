@@ -3,22 +3,22 @@
 mkdir -p demo_run 2>/dev/null
 cd demo_run
 
-if [[ ! -f demo_1.fq ]]
+if [[ ! -f set1_1.fq ]]
 then
     echo 'unpacking demo fq'
-    cp ../demo_1.fq.bz2 .
-    cp ../demo_2.fq.bz2 .
-    bunzip2 demo_1.fq.bz2
-    bunzip2 demo_2.fq.bz2
+    cp ../set1_1.fq.bz2 .
+    cp ../set1_2.fq.bz2 .
+    bunzip2 set1_1.fq.bz2
+    bunzip2 set1_2.fq.bz2
 fi
 
-if [[ ! -f alter_1.fq ]]
+if [[ ! -f set2_1.fq ]]
 then
     echo 'unpacking alternative fq'
-    cp ../alter_1.fq.bz2 .
-    cp ../alter_2.fq.bz2 .
-    bunzip2 alter_1.fq.bz2
-    bunzip2 alter_2.fq.bz2
+    cp ../set2_1.fq.bz2 .
+    cp ../set2_2.fq.bz2 .
+    bunzip2 set2_1.fq.bz2
+    bunzip2 set2_2.fq.bz2
 fi
 
 if [[ ! -f db.1.ebwt ]]
@@ -27,30 +27,51 @@ then
     bowtie-build ../test.fasta db
 fi
 
-if [[ ! -f "demo.sam" ]]
+if [[ ! -f "set1.sam" ]]
 then
     echo 'running bowtie'
     bowtie -I 1 -X 100000 -k 4 -S -p 4 --strata --best \
-        db -1 demo_1.fq -2 demo_2.fq demo.sam
+        db -1 set1_1.fq -2 set1_2.fq set1.sam
 fi
 
-if [[ ! -f "alter.sam" ]]
+if [[ ! -f "set2.sam" ]]
 then
     echo 'running bowtie'
     bowtie -I 1 -X 100000 -k 4 -S -p 4 --strata --best \
-        db -1 alter_1.fq -2 alter_2.fq alter.sam
+        db -1 set2_1.fq -2 set2_2.fq set2.sam
 fi
 
-echo 'running hagfish'
-hagfish_extract -S -v --low 210 --high 365 demo.sam 
-hagfish_extract -S -v --low 210 --high 365 alter.sam 
-hagfish_coverage_combine -v
-hagfish_gapfinder -v -f ../test.fasta 
+echo 'running hagfish - if necessary'
 
-echo 'and plot'
-hagfish_cplot2 --ymax 400 -n 6e4 contig
-hagfish_blockplot -n 6e4 contig
+[[ -d "readpairs/set1" ]] || \
+    hagfish_extract -S -vv --low 210 --high 365 set1.sam 
+[[ -d "readpairs/set2" ]] || \
+    hagfish_extract -S -vv --low 210 --high 365 set2.sam 
+[[ -d "combined" ]] || hagfish_coverage_combine -v
+[[ -d "gaps" ]] || hagfish_gapfinder -v -f ../test.fasta 
 
-hagfish_compplot2 -n 6e4 -l demo -L alter
+echo 'and plot!'
+
+c1='-n 6e4 --dpi 400'
+c2='-n 15e3 -e 15e3 --dpi 400'
+cp='--ymax 400 -S -H 400'
+
+hagfish_cplot2 $c1 $cp -l set1  contig 
+hagfish_cplot2 $c1 $cp -l set2 contig
+
+hagfish_cplot2 $c2 $cp -l set1  contig
+hagfish_cplot2 $c2 $cp -l set2 contig
+
+hagfish_blockplot $c1 -l set1 contig
+hagfish_blockplot $c1 -l set2 contig
+
+hagfish_blockplot $c2 -l set1  contig
+hagfish_blockplot $c2 -l set2  contig
+
+hagfish_compplot2 $c1 $cp -l set1 -L set2 contig
+hagfish_compplot2 $c2 $cp -l set1 -L set2 contig
+
+hagfish_blockcompplot2 $c1 -l set1 -L set2 contig
+hagfish_blockcompplot2 $c2 -l set1 -L set2 contig
 
 

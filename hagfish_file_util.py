@@ -20,7 +20,7 @@ def np_savez(file_base, **kwargs):
     for k in kwargs:
         file_name = '%s.%s.gz' % (file_base, k)
         F = gzip.open(file_name, 'w')
-        cPickle.dump(kwargs[k], F)
+        cPickle.dump(kwargs[k], F,0)
         F.close()
 
 def np_exists(file_base, what):

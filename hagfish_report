@@ -93,12 +93,13 @@ if __name__ == '__main__':
         l.info("quite a few sequences (%d) :( might take a while!" % len(seqInfo))
 
     cum_r_ok = np.array([])
-    cum_r_high = np.array([])
-    cum_r_low = np.array([])
-
     cum_r_ok_ends = np.array([])
-    cum_r_high_ends = np.array([])
-    cum_r_low_ends = np.array([])
+
+    if not options.onlyok:
+        cum_r_high = np.array([])
+        cum_r_low = np.array([])
+        cum_r_high_ends = np.array([])
+        cum_r_low_ends = np.array([])
 
     l.info("Start parsing %d sequences" % len(seqs_to_parse))
 
@@ -129,12 +130,13 @@ if __name__ == '__main__':
             
         try:
             r_ok = np_load(file_base, 'r_ok')
-            r_high = np_load(file_base, 'r_high')
-            r_low = np_load(file_base, 'r_low')
-
             r_ok_ends = np_load(file_base, 'r_ok_ends')
-            r_high_ends = np_load(file_base, 'r_high_ends')
-            r_low_ends = np_load(file_base, 'r_low_ends')
+            if True: #not options.onlyok:
+                r_high = np_load(file_base, 'r_high')
+                r_low = np_load(file_base, 'r_low')
+                r_high_ends = np_load(file_base, 'r_high_ends')
+                r_low_ends = np_load(file_base, 'r_low_ends')
+
             if GAP:
                 nons += len(np.flatnonzero(np_load(gap_base, 'nns')))
 
@@ -148,11 +150,12 @@ if __name__ == '__main__':
         #add to the cumulative plot
         if seqLen >= options.cum_seqlen_cutoff: 
             cum_r_ok = np.concatenate((cum_r_ok, r_ok))
-            cum_r_high = np.concatenate((cum_r_high, r_high))
-            cum_r_low = np.concatenate((cum_r_low, r_low))
             cum_r_ok_ends = np.concatenate((cum_r_ok_ends, r_ok_ends))
-            cum_r_high_ends = np.concatenate((cum_r_high_ends, r_high_ends))
-            cum_r_low_ends = np.concatenate((cum_r_low_ends, r_low_ends))
+            if True: #not options.onlyok:
+                cum_r_high = np.concatenate((cum_r_high, r_high))
+                cum_r_low = np.concatenate((cum_r_low, r_low))
+                cum_r_high_ends = np.concatenate((cum_r_high_ends, r_high_ends))
+                cum_r_low_ends = np.concatenate((cum_r_low_ends, r_low_ends))
 
     seqLen = totalSeqLen
 
@@ -176,7 +179,11 @@ if __name__ == '__main__':
     l.debug("Calculated score: min %s, max %s" % (np.min(score), np.max(score)))
 
     #determine what the bins are
-    maxx = max(max(cum_r_ok), max(cum_r_high), max(cum_r_low))
+    if False: # True: #options.onlyok:
+        maxx = max(max(cum_r_ok))
+    else:
+        maxx = max(max(cum_r_ok), max(cum_r_high), max(cum_r_low))
+
     maxx = 1500 * ( ( maxx / 1000 ) + 1 )             
     
     #bins =  np.array([0,1,2,3,4] + range(5, int(maxx)))
@@ -189,24 +196,23 @@ if __name__ == '__main__':
 
     l.debug("Bins %s" % bins)
     ok_hist, oe = np.histogram(cum_r_ok, bins = bins)
-    high_hist, he = np.histogram(cum_r_high, bins = bins)
-    low_hist, le = np.histogram(cum_r_low, bins = bins)
-
     ok_hist_ends, _oee = np.histogram(cum_r_ok_ends, bins = bins)
-    high_hist_ends, _hee = np.histogram(cum_r_high_ends, bins = bins)
-    low_hist_ends, _lee = np.histogram(cum_r_low_ends, bins = bins)
+    rep_ok_hist_ends, roee = np.histogram(cum_r_ok_ends, bins = rBins)
+    rep_ok_hist, roe = np.histogram(cum_r_ok, bins = rBins)
+
+
+    if True: # not options.onlyok:
+        high_hist, he = np.histogram(cum_r_high, bins = bins)
+        low_hist, le = np.histogram(cum_r_low, bins = bins)
+        high_hist_ends, _hee = np.histogram(cum_r_high_ends, bins = bins)
+        low_hist_ends, _lee = np.histogram(cum_r_low_ends, bins = bins)
+        rep_high_hist_ends, rhee = np.histogram(cum_r_high_ends, bins = rBins)
+        rep_low_hist_ends, rlee = np.histogram(cum_r_low_ends, bins = rBins)
+        rep_high_hist, rhe = np.histogram(cum_r_high, bins = rBins)
+        rep_low_hist, rle = np.histogram(cum_r_low, bins = rBins)
+
 
     hist_edges = oe
-
-    rep_ok_hist_ends, roee = np.histogram(cum_r_ok_ends, bins = rBins)
-    rep_high_hist_ends, rhee = np.histogram(cum_r_high_ends, bins = rBins)
-    rep_low_hist_ends, rlee = np.histogram(cum_r_low_ends, bins = rBins)
-
-    rep_ok_hist, roe = np.histogram(cum_r_ok, bins = rBins)
-    rep_high_hist, rhe = np.histogram(cum_r_high, bins = rBins)
-    rep_low_hist, rle = np.histogram(cum_r_low, bins = rBins)
-
-
     rep_hist_edges = roee
 
     #print coverage distribution plot
