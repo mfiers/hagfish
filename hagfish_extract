@@ -67,7 +67,7 @@ parser.add_option('--max', dest='maxInsert',
                    help='max insert size to consider while creating the '+
                   'coverage plots')
 
-parser.set_defaults(minLen='10000')
+parser.set_defaults(minLen='1000')
 parser.add_option('--minLen', dest='minLen',
                   help='Minimal sequence length - ignore sequence shorter than ' +
                   'this length')
