@@ -296,6 +296,8 @@ if __name__ == '__main__':
 
     #for i, regkey in enumerate(region_data.keys()):
 
+    plocol = [hu.COLRED, hu.COLGREEN, hu.COLBLUE, hu.COLPURPLE, hu.COLYELLOW]
+    plols = ['-', '--', '-.', ':']
     for i, regkey in enumerate(region_data.keys()):
         rob = region_data[regkey]
         seqId, start, stop = regkey
@@ -314,16 +316,29 @@ if __name__ == '__main__':
 
                 ax.fill_between(rob.he[1:-1],
                                 cp_ok_hist_ends, cp_ok_hist,
-                                 color=hu.COLLIST(i/no_regions), alpha=0.3,
+                                color=hu.COLLIST((3 * (i/no_regions))), alpha=0.3,
                                 label='Ok ICP')
 
-            ax.plot((rob.he[1:-1]), cp_ok_hist_ends, '-', c=hu.COLLIST(i/no_regions),
+
+            print plols[(1+int(float(i)/len(plols))) % len(plols)]
+            ax.plot((rob.he[1:-1]), cp_ok_hist_ends, '-',
+                    c=plocol[i % len(plocol)],
+                    lw=2, alpha=0.9,
+                    ls=plols[(1+int(float(i)/len(plocol))) % len(plols)],
                     label=" %s" % rob.label)
+
+            #ax.plot((rob.he[1:-1]), cp_ok_hist_ends, '-',
+            #        c=hu.COLLIST( (3*i/no_regions) - math.floor((2*i/no_regions))),
+            #        label=" %s" % rob.label)
 
     ax.legend(prop={'size' :'x-small'})
     minX, maxX = ax.get_axes().get_xlim()
 
+    if options.maxx:
+        ax.set_xlim(1, options.maxx)
+    else:
+        ax.set_xlim(1, 1000)
+
     ax.set_xscale('log')
-    ax.set_xlim(1, 1000)
     plt.savefig(options.base + '.cumul.coverage.png',
                     dpi=options.dpi)

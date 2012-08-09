@@ -1,16 +1,13 @@
 import os
 import sys
 import math
-import copy
 
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.path as mpath
 import matplotlib.colors as mcol
 import matplotlib.patches as mpatches
-import matplotlib.mlab as mlab
 import matplotlib as mpl
-import matplotlib.transforms
 import logging
 import optparse
 
@@ -32,6 +29,7 @@ COLDARKRED = '#A61000'
 COLDARKBLUE = '#015666'
 COLDARKYELLOW = '#A65100'
 
+
 COLLIGHTGREEN = '#38E05D'
 COLLIGHTRED = '#FF5240'
 COLLIGHTBLUE = '#37B6CE'
@@ -42,6 +40,12 @@ COLDARKRED = '#9F0025'
 COLDARKPURPLE = '#42036F'
 COLDARKBLUE = '#06266F'
 COLDARKYELLOW = '#A66F00'
+
+COLGREEN = '#1AD644'
+COLRED = '#D61A1A'
+COLPURPLE = '#D61AAC'
+COLBLUE = '#1A4ED6'
+COLYELLOW = '#E4EB2F'
 
 COLLIGHTGREEN = '#38E05D'
 COLLIGHTRED = '#B12D4C'
